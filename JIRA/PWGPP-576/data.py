@@ -21,6 +21,24 @@ def testfunc_exp(x, a, b):
 
 def testfunc_exp_np(x, a, b):
     return np.exp(a*x)+b
+
+def return_array(array_size, n, func):
+    data_array = []
+    for i in range(array_size):
+        dataa = testdata()
+        dataa.setfunclin()
+        if (func == "exp"):
+            dataa.setfuncexp()
+        if (func == "sin"):
+            dataa.setfuncsin()
+        dataa.setxy(n)
+        data_array.append(dataa)
+    x_array = []
+    y_array = []
+    for el in data_array:
+        x_array.append(el.x)
+        y_array.append(el.y)
+    return np.array(x_array), np.array(y_array)
     
 class testdata:
     
@@ -29,6 +47,7 @@ class testdata:
         self.x = None
         self.y = None
         self.num_params = None
+        self.params = None
         #self.setfunclin()
         #self.setxy(n)
         
@@ -54,6 +73,7 @@ class testdata:
             y_vals.append(np.random.normal(self.func(el, *param_list),0.1))
         y_vals = tf.stack(y_vals).numpy()
         self.y = y_vals
+        self.params = param_list
         
     
         
