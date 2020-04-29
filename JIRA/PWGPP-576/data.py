@@ -1,14 +1,23 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Apr  8 20:51:39 2020
+a[]
+@author: mkroe
+"""
+
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 import inspect
-
+import torch
 
 def testfunc_lin(x, a, b):
     return a*tf.cast(x,tf.float32)+b
 
 def testfunc_lin_np(x, a, b):
     return a*x+b
+
+def testfunc_lin_torch(x,a):
+    return a[0]*x+a[1]
     
 def testfunc_sin(x, a, b, c):
     return a*tf.sin(b*tf.cast(x,tf.float32))+c
@@ -16,11 +25,17 @@ def testfunc_sin(x, a, b, c):
 def testfunc_sin_np(x, a, b, c):
     return a*np.sin(b*x)+c
 
+def testfunc_sin_torch(x, a):
+    return a[0]*torch.sin(a[1]*x)+a[2]
+
 def testfunc_exp(x, a, b):
     return tf.exp(a*tf.cast(x,tf.float32))+b
 
 def testfunc_exp_np(x, a, b):
     return np.exp(a*x)+b
+
+def testfunc_exp_torch(x,a):
+    return torch.exp(a[0]*x)+a[1]
 
 def return_array(array_size, n, func):
     data_array = []
@@ -42,7 +57,7 @@ def return_array(array_size, n, func):
     
 class testdata:
     
-    def __init__(self):
+    def __init__(self,seed=None):
         self.func = None
         self.x = None
         self.y = None
@@ -74,7 +89,3 @@ class testdata:
         y_vals = tf.stack(y_vals).numpy()
         self.y = y_vals
         self.params = param_list
-        
-    
-        
-    
