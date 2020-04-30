@@ -87,7 +87,7 @@ class bfgsfitter:
         optim_results = self.optim()
     
         params = optim_results[4]
-        cov = (4*optim_results[7]/len(x))*self.loss(params)
+        cov = (4*optim_results[7]/x.shape[0])*self.loss(params)
         
         return params, cov
     
