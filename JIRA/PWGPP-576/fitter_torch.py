@@ -9,27 +9,43 @@ import torch
 import torch.nn
 import torch.optim
 
-def mse(x,y):
+def mse(x,y,*):
+    """
+    standard loss: mean squared error
+
+    @param y_pred: predicted value
+    @param y_true: target value
+    @return: mse
+    """
     return torch.mean((x-y)**2)
 
-def curve_fit(fitfunc,x,y,params, optimizer_options={}, **kwargs):
+
+
+def curve_fit(fitfunc,x,y,p0, weights = None, lossfunc = None, optimizer = torch.optim.LBFGS, ytol = 1e-5, xtol = 1e-5, max_steps = 1, optimizer_options={}):
+    """
+    curve fitting
+
+    @param fitfunc: the function to be fitted
+    @param x: input parameters
+    @param y: output parameters
+    @param p0: the parameters that should be fitted, filled with the initial guess values
+    @return: values of fitted parameters
+    """
     
-    options = {
-            "atol":1e-3,
-            "max_iterations":1000,
-            "optimizer":torch.optim.LBFGS,
-            "lossfunc":mse,
-            "tolerance_change":0.1
-            }
-    options.update(kwargs)
-    
-    optimizer = options["optimizer"](params, **optimizer_options)
-    
-    atol = options["atol"]
-    lossfunc = options["lossfunc"]
-    
+    optimizer = optimizer(params, **optimizer_options)
+        
+    if lossfunc is None:
+        if weights in None:
+            lossfunc = mse
+        elif weights.shape == y.shape:
+            lossfunc = lambda x,y:torch.sum(((x-y)/weights)**2)
+        else:
+            t = weights.cholesky()
+            lossfunc = lambda x,y:torch.sum(torch.cholesky_solve((x-y).reshape([-1,1]),t)**2)
+
     #for i in range(options["max_iterations"]):
-    for i in range(0,1):
+    for i in range(max_steps):
+        
         def closure():
             optimizer.zero_grad()
             y_appx = fitfunc(x,*params)
@@ -38,12 +54,10 @@ def curve_fit(fitfunc,x,y,params, optimizer_options={}, **kwargs):
             return loss
         optimizer.step(closure)
     
-        optimizer.zero_grad()
-        y_appx = fitfunc(x,*params)
-        loss = lossfunc(y,y_appx)
-        loss.backward()
-        ngrad=torch.norm(params[0].grad**2)/params[0].numel()
-        if ngrad<atol:
+        optcond = max(torch.max(torch.abs(i.grad)) for i in params) < ytol
+        
+        
+        if optcond or stall:
             break
    # print(i)        
     
