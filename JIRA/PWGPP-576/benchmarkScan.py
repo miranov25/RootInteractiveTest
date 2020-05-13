@@ -13,7 +13,7 @@ import scipy.optimize
 from iminuit import Minuit
 import time
 import matplotlib.pyplot as plt
-
+import pandas as pd
 import torch
 import fitter_torch
 
@@ -42,7 +42,12 @@ def cuda_curve_fit_sync(*args, **kwargs):
 
 
 def benchmark_linear(pointList):
-
+    
+    params = []
+    covs = []
+    params_true = []
+    optimizers = []
+    npoints = []
 
     for idx, el in enumerate(pointList):
         comp_time_lin = []
@@ -62,6 +67,11 @@ def benchmark_linear(pointList):
         print(p)
         print(q)
         print(t1_stop - t1_start)
+        params.append(p.numpy())
+        covs.append(np.diag(q.numpy()))
+        params_true.append(data_exp.params)
+        optimizers.append("Tensorflow_BFGS")
+        npoints.append(el)
 
         # second fit after initializiation
         t1_start = time.time()
@@ -80,22 +90,32 @@ def benchmark_linear(pointList):
         print(p)
         print(q)
         print(t1_stop - t1_start)
-
+        params.append(p)
+        covs.append(np.diag(q))
+        params_true.append(data_exp.params)
+        optimizers.append("Scipy_LM")
+        npoints.append(el)
+        
         # pytorch CPU
         t1_start = time.time()
         x = torch.from_numpy(data_lin.x)
         y = torch.from_numpy(data_lin.y)
         for i in range(nfits):
-            p, q, j = fitter_torch.curve_fit(data.testfunc_lin_torch, x, y,
+            p, q = fitter_torch.curve_fit(data.testfunc_lin_torch, x, y,
                                              [torch.ones(2, requires_grad=True, dtype=torch.float64)])
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
         print(q)
-        print(j)
         print(t1_stop - t1_start)
-
+        params.append(p[0].detach().numpy())
+        covs.append(np.diag(q.numpy()))
+        params_true.append(data_exp.params)
+        optimizers.append("PyTorch_LBFGS")
+        npoints.append(el)
+        
         # pytorch GPU
+        """
         t1_start = time.time()
         if torch.cuda.is_available():
             x = torch.from_numpy(data_lin.x).cuda()
@@ -106,13 +126,20 @@ def benchmark_linear(pointList):
                     torch.ones(2, requires_grad=True, dtype=torch.float64, device="cuda:0")])
             t1_stop = time.time()
             comp_time_lin.append(t1_stop - t1_start)
-
+        """
         linlist.append(comp_time_lin)
-    return linlist
+    df = pd.DataFrame({'optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    return linlist,df
 
 
 def benchmark_sin(pointlist):
-
+    
+    params = []
+    covs = []
+    params_true = []
+    optimizers = []
+    npoints = []
+    
     for idx, el in enumerate(pointlist):
         comp_time_sin = []
 
@@ -129,7 +156,12 @@ def benchmark_sin(pointlist):
         comp_time_sin.append(t1_stop - t1_start)
         # print(p)
         # print(q)
-
+        params.append(p.numpy())
+        covs.append(np.diag(q.numpy()))
+        params_true.append(data_exp.params)
+        optimizers.append("Tensorflow_BFGS")
+        npoints.append(el)
+        
         # second fit after initializiation
         t1_start = time.time()
         for i in range(nfits):
@@ -148,25 +180,41 @@ def benchmark_sin(pointlist):
         comp_time_sin.append(t1_stop - t1_start)
         # print(p)
         # print(q)
-
+        params.append(p)
+        covs.append(np.diag(q))
+        params_true.append(data_exp.params)
+        optimizers.append("Scipy_LM")
+        npoints.append(el)
+        
         # pytorch CPU
         t1_start = time.time()
         x = torch.from_numpy(data_sin.x)
         y = torch.from_numpy(data_sin.y)
         for i in range(nfits):
-            p, q, j = fitter_torch.curve_fit(data.testfunc_sin_torch, x, y,
+            p, q = fitter_torch.curve_fit(data.testfunc_sin_torch, x, y,
                                              [torch.ones(3, requires_grad=True, dtype=torch.float64)])
         t1_stop = time.time()
         print(p)
         print(q)
-        print(j)
         print(t1_stop - t1_start)
         comp_time_sin.append(t1_stop - t1_start)
         sinlist.append(comp_time_sin)
-    return sinlist
+        params.append(p[0].detach().numpy())
+        covs.append(np.diag(q.numpy()))
+        params_true.append(data_exp.params)
+        optimizers.append("PyTorch_LBFGS")
+        npoints.append(el)
+    df = pd.DataFrame({'optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    return sinlist,df
 
 
 def benchmark_epx(pointlist):
+    
+    params = []
+    covs = []
+    params_true = []
+    optimizers = []
+    npoints = []
 
     for idx, el in enumerate(pointlist):
         comp_time_exp = []
@@ -181,9 +229,14 @@ def benchmark_epx(pointlist):
 
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
-        print(p)
-        print(q)
-
+        print(p.numpy())
+        print(q.numpy())
+        params.append(p.numpy())
+        covs.append(np.diag(q.numpy()))
+        params_true.append(data_exp.params)
+        optimizers.append("Tensorflow_BFGS")
+        npoints.append(el)
+        
         # second fit after initializiation
         t1_start = time.time()
 
@@ -203,27 +256,40 @@ def benchmark_epx(pointlist):
         comp_time_exp.append(t1_stop - t1_start)
         print(p)
         print(q)
-
+        params.append(p)
+        covs.append(np.diag(q))
+        params_true.append(data_exp.params)
+        optimizers.append("Scipy_LM")
+        npoints.append(el)
+        
         # pytorch CPU
         t1_start = time.time()
         x = torch.from_numpy(data_exp.x)
         y = torch.from_numpy(data_exp.y)
         for i in range(nfits):
-            p, q, j = fitter_torch.curve_fit(data.testfunc_exp_torch, x, y,
+            p, q = fitter_torch.curve_fit(data.testfunc_exp_torch, x, y,
                                              [torch.ones(2, requires_grad=True, dtype=torch.float64)])
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
-        print(p)
-        print(q)
-        print(j)
+        print(p[0].detach().numpy())
+        print(q.numpy())
         print(t1_stop - t1_start)
+        params.append(p[0].detach().numpy())
+        covs.append(np.diag(q.numpy()))
+        params_true.append(data_exp.params)
+        optimizers.append("PyTorch_LBFGS")
+        npoints.append(el)
+        
         explist.append(comp_time_exp)
-    return explist
+    
+    df = pd.DataFrame({'optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    
+    return explist,df
 
 
 #linlist = benchmark_linear(pointlist)
 #sinlist = benchmark_sin(pointlist)
-explist = benchmark_epx(pointlist)
+explist,df = benchmark_epx(pointlist)
 
 #
 plotlists = [explist]
