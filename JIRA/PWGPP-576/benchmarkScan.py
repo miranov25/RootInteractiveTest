@@ -128,7 +128,7 @@ def benchmark_linear(pointList):
             comp_time_lin.append(t1_stop - t1_start)
         """
         linlist.append(comp_time_lin)
-    df = pd.DataFrame({'optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    df = pd.DataFrame({'type':'linear','optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
     return linlist,df
 
 
@@ -204,7 +204,7 @@ def benchmark_sin(pointlist):
         params_true.append(data_exp.params)
         optimizers.append("PyTorch_LBFGS")
         npoints.append(el)
-    df = pd.DataFrame({'optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    df = pd.DataFrame({'type':'sin','optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
     return sinlist,df
 
 
@@ -282,14 +282,14 @@ def benchmark_epx(pointlist):
         
         explist.append(comp_time_exp)
     
-    df = pd.DataFrame({'optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    df = pd.DataFrame({'type':'exp','optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
     
     return explist,df
 
 
-#linlist = benchmark_linear(pointlist)
-#sinlist = benchmark_sin(pointlist)
-explist,df = benchmark_epx(pointlist)
+linlist,lindf = benchmark_linear(pointlist)
+sinlist,sindf = benchmark_sin(pointlist)
+explist,expdf = benchmark_epx(pointlist)
 
 #
 plotlists = [explist]
@@ -309,3 +309,7 @@ for idx, plotlist in enumerate(plotlists):
     plt.ylabel("time [s]")
     plt.savefig(funcnames[idx] + ".pdf")
     plt.show()
+
+lindf.to_csv("benchmark_linear.csv")
+sindf.to_csv("benchmark_sin.csv")
+expdf.to_csv("benchmark_exp.csv")
