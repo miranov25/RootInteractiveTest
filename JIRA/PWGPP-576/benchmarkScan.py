@@ -69,7 +69,7 @@ def benchmark_linear(pointList):
         print(t1_stop - t1_start)
         params.append(p.numpy())
         covs.append(np.diag(q.numpy()))
-        params_true.append(data_exp.params)
+        params_true.append(data_lin.params)
         optimizers.append("Tensorflow_BFGS")
         npoints.append(el)
 
@@ -92,7 +92,7 @@ def benchmark_linear(pointList):
         print(t1_stop - t1_start)
         params.append(p)
         covs.append(np.diag(q))
-        params_true.append(data_exp.params)
+        params_true.append(data_lin.params)
         optimizers.append("Scipy_LM")
         npoints.append(el)
         
@@ -110,7 +110,7 @@ def benchmark_linear(pointList):
         print(t1_stop - t1_start)
         params.append(p[0].detach().numpy())
         covs.append(np.diag(q.numpy()))
-        params_true.append(data_exp.params)
+        params_true.append(data_lin.params)
         optimizers.append("PyTorch_LBFGS")
         npoints.append(el)
         
@@ -158,7 +158,7 @@ def benchmark_sin(pointlist):
         # print(q)
         params.append(p.numpy())
         covs.append(np.diag(q.numpy()))
-        params_true.append(data_exp.params)
+        params_true.append(data_sin.params)
         optimizers.append("Tensorflow_BFGS")
         npoints.append(el)
         
@@ -182,7 +182,7 @@ def benchmark_sin(pointlist):
         # print(q)
         params.append(p)
         covs.append(np.diag(q))
-        params_true.append(data_exp.params)
+        params_true.append(data_sin.params)
         optimizers.append("Scipy_LM")
         npoints.append(el)
         
@@ -201,7 +201,7 @@ def benchmark_sin(pointlist):
         sinlist.append(comp_time_sin)
         params.append(p[0].detach().numpy())
         covs.append(np.diag(q.numpy()))
-        params_true.append(data_exp.params)
+        params_true.append(data_sin.params)
         optimizers.append("PyTorch_LBFGS")
         npoints.append(el)
     df = pd.DataFrame({'type':'sin','optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
