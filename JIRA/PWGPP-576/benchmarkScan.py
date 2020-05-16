@@ -25,8 +25,8 @@ data_lin = data.testdata()
 data_lin.setfunclin()
 
 #pointlist = [10,100,1000,10000,100000,1000000]
-pointlist = [10, 100, 1000,10000, 100000]
-#pointlist = [1000, 10000]
+#pointlist = [10, 100, 1000,10000, 100000]
+pointlist = [1000, 10000]
 nfits = 10
 lin_parameter_list = []
 lin_parameter_list_org = []
@@ -130,7 +130,14 @@ def benchmark_linear(pointList):
             comp_time_lin.append(t1_stop - t1_start)
         """
         linlist.append(comp_time_lin)
-    df = pd.DataFrame({'type':'linear','optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    params = np.stack(params)
+    covs = np.stack(covs)
+    params_true = list(zip(*params_true))
+    d = {'type':'linear','optimizers':optimizers,'number_points':npoints}
+    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
+    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
+    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
+    df = pd.DataFrame(d)
     return linlist,df
 
 
@@ -208,8 +215,14 @@ def benchmark_sin(pointlist):
         print(t1_stop - t1_start)
         comp_time_sin.append(t1_stop - t1_start)
         sinlist.append(comp_time_sin)
-
-    df = pd.DataFrame({'type':'sin','optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    params = np.stack(params)
+    covs = np.stack(covs)
+    params_true = list(zip(*params_true))
+    d = {'type':'sin','optimizers':optimizers,'number_points':npoints}
+    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
+    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
+    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
+    df = pd.DataFrame(d)
     return sinlist,df
 
 
@@ -288,7 +301,14 @@ def benchmark_epx(pointlist):
         
         explist.append(comp_time_exp)
     
-    df = pd.DataFrame({'type':'exp','optimizers':optimizers,'params_true':params_true,'params':params,'errors':covs,'number_points':npoints})
+    params = np.stack(params)
+    covs = np.stack(covs)
+    params_true = list(zip(*params_true))
+    d = {'type':'exp','optimizers':optimizers,'number_points':npoints}
+    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
+    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
+    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
+    df = pd.DataFrame(d)
     
     return explist,df
 
@@ -319,3 +339,7 @@ for idx, plotlist in enumerate(plotlists):
 lindf.to_csv("benchmark_linear.csv")
 sindf.to_csv("benchmark_sin.csv")
 expdf.to_csv("benchmark_exp.csv")
+
+lindf.to_pickle("benchmark_linear.pkl")
+sindf.to_pickle("benchmark_sin.pkl")
+expdf.to_pickle("benchmark_exp.pkl")
