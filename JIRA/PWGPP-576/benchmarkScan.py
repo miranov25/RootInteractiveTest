@@ -40,6 +40,16 @@ def cuda_curve_fit_sync(*args, **kwargs):
     torch.cuda.synchronize()
     return x
 
+def create_benchmark_df(name,optimizers,params_true,params,covs,npoints,idx):
+    params = np.stack(params)
+    covs = np.stack(covs)
+    params_true = list(zip(*params_true))
+    d = {'type':name,'optimizers':optimizers,'number_points':npoints,'weights_idx':idx}
+    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
+    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
+    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
+    df = pd.DataFrame(d)
+    return df
 
 def benchmark_linear(pointList):
     
@@ -48,6 +58,7 @@ def benchmark_linear(pointList):
     params_true = []
     optimizers = []
     npoints = []
+    weights_index = []
 
     for idx, el in enumerate(pointList):
         comp_time_lin = []
@@ -68,6 +79,7 @@ def benchmark_linear(pointList):
         print(p)
         print(q)
         print(t1_stop - t1_start)
+        weights_index.append(0)
         params.append(p.numpy())
         covs.append(np.diag(q.numpy()))
         params_true.append(data_lin.params)
@@ -91,6 +103,7 @@ def benchmark_linear(pointList):
             params_true.append(data_lin.params)
             optimizers.append("Scipy_LM")
             npoints.append(el)
+            weights_index.append(i)
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
@@ -111,6 +124,7 @@ def benchmark_linear(pointList):
             params_true.append(data_lin.params)
             optimizers.append("PyTorch_LBFGS")
             npoints.append(el)
+            weights_index.append(i)
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
@@ -130,14 +144,8 @@ def benchmark_linear(pointList):
             comp_time_lin.append(t1_stop - t1_start)
         """
         linlist.append(comp_time_lin)
-    params = np.stack(params)
-    covs = np.stack(covs)
-    params_true = list(zip(*params_true))
-    d = {'type':'linear','optimizers':optimizers,'number_points':npoints}
-    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
-    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
-    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
-    df = pd.DataFrame(d)
+    name = "lin"
+    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index)
     return linlist,df
 
 
@@ -148,6 +156,7 @@ def benchmark_sin(pointlist):
     params_true = []
     optimizers = []
     npoints = []
+    weights_index = []
     
     for idx, el in enumerate(pointlist):
         
@@ -166,6 +175,7 @@ def benchmark_sin(pointlist):
         comp_time_sin.append(t1_stop - t1_start)
         # print(p)
         # print(q)
+        weights_index.append(0)
         params.append(p.numpy())
         covs.append(np.diag(q.numpy()))
         params_true.append(data_sin.params)
@@ -190,6 +200,7 @@ def benchmark_sin(pointlist):
             params_true.append(data_sin.params)
             optimizers.append("Scipy_LM")
             npoints.append(el)
+            weights_index.append(i)
             
         t1_stop = time.time()
         comp_time_sin.append(t1_stop - t1_start)
@@ -209,20 +220,15 @@ def benchmark_sin(pointlist):
             params_true.append(data_sin.params)
             optimizers.append("PyTorch_LBFGS")
             npoints.append(el)
+            weights_index.append(i)
         t1_stop = time.time()
         print(p)
         print(q)
         print(t1_stop - t1_start)
         comp_time_sin.append(t1_stop - t1_start)
         sinlist.append(comp_time_sin)
-    params = np.stack(params)
-    covs = np.stack(covs)
-    params_true = list(zip(*params_true))
-    d = {'type':'sin','optimizers':optimizers,'number_points':npoints}
-    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
-    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
-    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
-    df = pd.DataFrame(d)
+    name = "sin"
+    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index)
     return sinlist,df
 
 
@@ -233,6 +239,7 @@ def benchmark_epx(pointlist):
     params_true = []
     optimizers = []
     npoints = []
+    weights_index = []
 
     for idx, el in enumerate(pointlist):
         comp_time_exp = []
@@ -249,6 +256,7 @@ def benchmark_epx(pointlist):
         comp_time_exp.append(t1_stop - t1_start)
         print(p.numpy())
         print(q.numpy())
+        weights_index.append(0)
         params.append(p.numpy())
         covs.append(np.diag(q.numpy()))
         params_true.append(data_exp.params)
@@ -274,6 +282,7 @@ def benchmark_epx(pointlist):
             params_true.append(data_exp.params)
             optimizers.append("Scipy_LM")
             npoints.append(el)
+            weights_index.append(i)
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
         print(p)
@@ -292,6 +301,7 @@ def benchmark_epx(pointlist):
             params_true.append(data_exp.params)
             optimizers.append("PyTorch_LBFGS")
             npoints.append(el)
+            weights_index.append(i)
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
         print(p[0].detach().numpy())
@@ -301,14 +311,8 @@ def benchmark_epx(pointlist):
         
         explist.append(comp_time_exp)
     
-    params = np.stack(params)
-    covs = np.stack(covs)
-    params_true = list(zip(*params_true))
-    d = {'type':'exp','optimizers':optimizers,'number_points':npoints}
-    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
-    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
-    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
-    df = pd.DataFrame(d)
+    name = "exp"
+    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index)
     
     return explist,df
 
