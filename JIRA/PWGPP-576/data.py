@@ -78,14 +78,14 @@ class testdata:
         self.func = testfunc_sin
         self.num_params = len(inspect.getfullargspec(self.func)[0])-1
         
-    def setxy(self, n):
+    def setxy(self, n, sigma):
         self.x = np.array(np.linspace(0,2*np.pi,n))
         y_vals = []
         param_list = []
         for i in range(self.num_params):
             param_list.append(np.random.uniform())
         for el in self.x:
-            y_vals.append(np.random.normal(self.func(el, *param_list),0.1))
+            y_vals.append(np.random.normal(self.func(el, *param_list),sigma))
         y_vals = tf.stack(y_vals).numpy()
         self.y = y_vals
         self.params = param_list
