@@ -25,10 +25,11 @@ data_lin = data.testdata()
 data_lin.setfunclin()
 
 #pointlist = [10,100,1000,10000,100000,1000000]
-#pointlist = [10, 100, 1000,10000, 100000]
-pointlist = [1000, 10000]
-nfits = 200
+pointlist = [10, 100, 1000,10000, 100000]
+#pointlist = [1000, 10000]
+nfits = 100
 sigma0=0.1
+eps=1e-3
 
 lin_parameter_list = []
 lin_parameter_list_org = []
@@ -41,6 +42,9 @@ def cuda_curve_fit_sync(*args, **kwargs):
     x = fitter_torch.curve_fit(*args, **kwargs)
     torch.cuda.synchronize()
     return x
+
+def bootstrap_weights(nfits,npoints):
+    return np.stack(np.bincount(np.random.randint(0,npoints,npoints),minlength=npoints) for i in range(nfits))
 
 def create_benchmark_df(name,optimizers,params_true,params,covs,npoints,idx,chisq,chisq_transformed):
     params = np.stack(params)
@@ -70,7 +74,7 @@ def benchmark_linear(pointList):
         data_lin.setxy(el,sigma0)
         lin_parameter_list_org.append(data_lin.params)
         #weights = np.random.rand(nfits,el)*2
-        weights = np.random.poisson( lam=1.,size=(nfits,el))
+        weights = bootstrap_weights(nfits,el)+eps
         # bfgsfitter
         t1_start = time.time()
         for i in range(nfits):
@@ -175,7 +179,8 @@ def benchmark_sin(pointlist):
 
         comp_time_sin = []
         #weights = np.random.rand(nfits,el)*2
-        weights = np.random.poisson(lam=1., size=(nfits, el))
+        #weights = np.random.poisson(lam=1., size=(nfits, el))
+        weights = bootstrap_weights(nfits,el)+eps
         sin_fitter = bfgsfitter(data.testfunc_sin)
         data_sin.setxy(el,sigma0)
 
@@ -267,7 +272,8 @@ def benchmark_epx(pointlist):
     for idx, el in enumerate(pointlist):
         comp_time_exp = []
         #weights = np.random.rand(nfits,el)*2
-        weights = np.random.poisson(lam=1., size=(nfits, el))
+        #weights = np.random.poisson(lam=1., size=(nfits, el))
+        weights = bootstrap_weights(nfits,el)+eps
         exp_fitter = bfgsfitter(data.testfunc_exp)
         data_exp.setxy(el,sigma0)
         # bfgsfitter
