@@ -75,6 +75,7 @@ def benchmark_linear(pointList):
         lin_parameter_list_org.append(data_lin.params)
         #weights = np.random.rand(nfits,el)*2
         weights = bootstrap_weights(nfits,el)+eps
+        weights[0] = np.ones(el)
         # bfgsfitter
         t1_start = time.time()
         for i in range(nfits):
@@ -181,6 +182,7 @@ def benchmark_sin(pointlist):
         #weights = np.random.rand(nfits,el)*2
         #weights = np.random.poisson(lam=1., size=(nfits, el))
         weights = bootstrap_weights(nfits,el)+eps
+        weights[0] = np.ones(el)
         sin_fitter = bfgsfitter(data.testfunc_sin)
         data_sin.setxy(el,sigma0)
 
@@ -274,6 +276,7 @@ def benchmark_epx(pointlist):
         #weights = np.random.rand(nfits,el)*2
         #weights = np.random.poisson(lam=1., size=(nfits, el))
         weights = bootstrap_weights(nfits,el)+eps
+        weights[0] = np.ones(el)
         exp_fitter = bfgsfitter(data.testfunc_exp)
         data_exp.setxy(el,sigma0)
         # bfgsfitter
