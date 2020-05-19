@@ -42,11 +42,11 @@ def cuda_curve_fit_sync(*args, **kwargs):
     torch.cuda.synchronize()
     return x
 
-def create_benchmark_df(name,optimizers,params_true,params,covs,npoints,idx):
+def create_benchmark_df(name,optimizers,params_true,params,covs,npoints,idx,chisq,chisq_transformed):
     params = np.stack(params)
     covs = np.stack(covs)
     params_true = list(zip(*params_true))
-    d = {'type':name,'optimizers':optimizers,'number_points':npoints,'weights_idx':idx}
+    d = {'type':name,'optimizers':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed}
     d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
     d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
     d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
@@ -61,6 +61,8 @@ def benchmark_linear(pointList):
     optimizers = []
     npoints = []
     weights_index = []
+    chisq=[]
+    chisq_transformed=[]
 
     for idx, el in enumerate(pointList):
         comp_time_lin = []
@@ -87,6 +89,8 @@ def benchmark_linear(pointList):
         params_true.append(data_lin.params)
         optimizers.append("Tensorflow_BFGS")
         npoints.append(el)
+        chisq.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p.numpy())-data_lin.y)/sigma0)**2))
+        chisq_transformed.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p.numpy())-data_lin.y)/sigma0)**2))
 
         # second fit after initializiation
         t1_start = time.time()
@@ -106,6 +110,8 @@ def benchmark_linear(pointList):
             optimizers.append("Scipy_LM")
             npoints.append(el)
             weights_index.append(i)
+            chisq.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p)-data_lin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights*((data.testfunc_lin_np(data_lin.x,*p)-data_lin.y)/sigma0)**2))
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
@@ -119,7 +125,8 @@ def benchmark_linear(pointList):
         y = torch.from_numpy(data_lin.y)
         for i in range(nfits):
             p, q = fitter_torch.curve_fit(data.testfunc_lin_torch, x, y,
-                                             [torch.ones(2, requires_grad=True, dtype=torch.float64)],weights=torch.from_numpy(weights[i]/sigma0**2))
+                                             [torch.ones(2, requires_grad=True, dtype=torch.float64)],weights=torch.from_numpy(weights[i]/sigma0**2),
+                                             ytol=1e-8)
 
             params.append(p[0].detach().numpy())
             covs.append(np.diag(q.numpy()))
@@ -127,6 +134,8 @@ def benchmark_linear(pointList):
             optimizers.append("PyTorch_LBFGS")
             npoints.append(el)
             weights_index.append(i)
+            chisq.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p[0].detach().numpy())-data_lin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights*((data.testfunc_lin_np(data_lin.x,*p[0].detach().numpy())-data_lin.y)/sigma0)**2))
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
@@ -147,7 +156,7 @@ def benchmark_linear(pointList):
         """
         linlist.append(comp_time_lin)
     name = "lin"
-    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index)
+    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index,chisq,chisq_transformed)
     return linlist,df
 
 
@@ -159,6 +168,8 @@ def benchmark_sin(pointlist):
     optimizers = []
     npoints = []
     weights_index = []
+    chisq=[]
+    chisq_transformed=[]
 
     for idx, el in enumerate(pointlist):
 
@@ -184,6 +195,8 @@ def benchmark_sin(pointlist):
         params_true.append(data_sin.params)
         optimizers.append("Tensorflow_BFGS")
         npoints.append(el)
+        chisq.append(np.sum(((data.testfunc_sin_np(data_sin.x,*p.numpy())-data_sin.y)/sigma0)**2))
+        chisq_transformed.append(np.sum(((data.testfunc_sin_np(data_sin.x,*p.numpy())-data_sin.y)/sigma0)**2))
 
         # second fit after initializiation
         t1_start = time.time()
@@ -204,6 +217,8 @@ def benchmark_sin(pointlist):
             optimizers.append("Scipy_LM")
             npoints.append(el)
             weights_index.append(i)
+            chisq.append(np.sum(((data.testfunc_sin_np(data_sin.x,*p)-data_sin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights*((data.testfunc_sin_np(data_sin.x,*p)-data_sin.y)/sigma0)**2))
 
         t1_stop = time.time()
         comp_time_sin.append(t1_stop - t1_start)
@@ -224,6 +239,9 @@ def benchmark_sin(pointlist):
             optimizers.append("PyTorch_LBFGS")
             npoints.append(el)
             weights_index.append(i)
+            chisq.append(np.sum(((data.testfunc_sin_np(data_sin.x,*p[0].detach().numpy())-data_sin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights*((data.testfunc_sin_np(data_sin.x,*p[0].detach().numpy())-data_sin.y)/sigma0)**2))
+
         t1_stop = time.time()
         print(p)
         print(q)
@@ -231,7 +249,7 @@ def benchmark_sin(pointlist):
         comp_time_sin.append(t1_stop - t1_start)
         sinlist.append(comp_time_sin)
     name = "sin"
-    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index)
+    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index,chisq,chisq_transformed)
     return sinlist,df
 
 
@@ -243,6 +261,8 @@ def benchmark_epx(pointlist):
     optimizers = []
     npoints = []
     weights_index = []
+    chisq = []
+    chisq_transformed = []
 
     for idx, el in enumerate(pointlist):
         comp_time_exp = []
@@ -266,6 +286,8 @@ def benchmark_epx(pointlist):
         params_true.append(data_exp.params)
         optimizers.append("Tensorflow_BFGS")
         npoints.append(el)
+        chisq.append(np.sum(((data.testfunc_exp_np(data_exp.x,*p)-data_exp.y)/sigma0)**2))
+        chisq_transformed.append(np.sum(((data.testfunc_exp_np(data_exp.x,*p)-data_exp.y)/sigma0)**2))
 
         # second fit after initializiation
         t1_start = time.time()
@@ -287,6 +309,8 @@ def benchmark_epx(pointlist):
             optimizers.append("Scipy_LM")
             npoints.append(el)
             weights_index.append(i)
+            chisq.append(np.sum(((data.testfunc_exp_np(data_exp.x,*p)-data_exp.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights*((data.testfunc_exp_np(data_exp.x,*p)-data_exp.y)/sigma0)**2))
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
         print(p)
@@ -306,6 +330,9 @@ def benchmark_epx(pointlist):
             optimizers.append("PyTorch_LBFGS")
             npoints.append(el)
             weights_index.append(i)
+            chisq.append(np.sum(((data.testfunc_lin_np(data_exp.x,*p[0].detach().numpy())-data_exp.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights*((data.testfunc_exp_np(data_exp.x,*p[0].detach().numpy())-data_exp.y)/sigma0)**2))
+
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
         print(p[0].detach().numpy())
@@ -316,7 +343,7 @@ def benchmark_epx(pointlist):
         explist.append(comp_time_exp)
 
     name = "exp"
-    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index)
+    df = create_benchmark_df(name,optimizers,params_true,params,covs,npoints,weights_index,chisq,chisq_transformed)
 
     return explist,df
 
