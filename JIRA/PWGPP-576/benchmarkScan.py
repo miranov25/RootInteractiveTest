@@ -110,7 +110,7 @@ def benchmark_linear(pointList):
         # scipy
         t1_start = time.time()
         for i in range(nfits):
-            p, q = scipy.optimize.curve_fit(data.testfunc_lin_np, data_lin.x, data_lin.y,sigma=sigma0/weights[i])
+            p, q = scipy.optimize.curve_fit(data.testfunc_lin_np, data_lin.x, data_lin.y,sigma=sigma0/np.sqrt(weights[i]))
             params.append(p)
             covs.append(np.diag(q))
             params_true.append(data_lin.params)
@@ -118,7 +118,7 @@ def benchmark_linear(pointList):
             npoints.append(el)
             weights_index.append(i)
             chisq.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p)-data_lin.y)/sigma0)**2))
-            chisq_transformed.append(np.sum(weights*((data.testfunc_lin_np(data_lin.x,*p)-data_lin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights[i]*((data.testfunc_lin_np(data_lin.x,*p)-data_lin.y)/sigma0)**2))
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
@@ -142,7 +142,7 @@ def benchmark_linear(pointList):
             npoints.append(el)
             weights_index.append(i)
             chisq.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p[0].detach().numpy())-data_lin.y)/sigma0)**2))
-            chisq_transformed.append(np.sum(weights*((data.testfunc_lin_np(data_lin.x,*p[0].detach().numpy())-data_lin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights[i]*((data.testfunc_lin_np(data_lin.x,*p[0].detach().numpy())-data_lin.y)/sigma0)**2))
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
@@ -227,7 +227,7 @@ def benchmark_sin(pointlist):
             npoints.append(el)
             weights_index.append(i)
             chisq.append(np.sum(((data.testfunc_sin_np(data_sin.x,*p)-data_sin.y)/sigma0)**2))
-            chisq_transformed.append(np.sum(weights*((data.testfunc_sin_np(data_sin.x,*p)-data_sin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights[i]*((data.testfunc_sin_np(data_sin.x,*p)-data_sin.y)/sigma0)**2))
 
         t1_stop = time.time()
         comp_time_sin.append(t1_stop - t1_start)
@@ -249,7 +249,7 @@ def benchmark_sin(pointlist):
             npoints.append(el)
             weights_index.append(i)
             chisq.append(np.sum(((data.testfunc_sin_np(data_sin.x,*p[0].detach().numpy())-data_sin.y)/sigma0)**2))
-            chisq_transformed.append(np.sum(weights*((data.testfunc_sin_np(data_sin.x,*p[0].detach().numpy())-data_sin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights[i]*((data.testfunc_sin_np(data_sin.x,*p[0].detach().numpy())-data_sin.y)/sigma0)**2))
 
         t1_stop = time.time()
         print(p)
@@ -321,7 +321,7 @@ def benchmark_epx(pointlist):
             npoints.append(el)
             weights_index.append(i)
             chisq.append(np.sum(((data.testfunc_exp_np(data_exp.x,*p)-data_exp.y)/sigma0)**2))
-            chisq_transformed.append(np.sum(weights*((data.testfunc_exp_np(data_exp.x,*p)-data_exp.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights[i]*((data.testfunc_exp_np(data_exp.x,*p)-data_exp.y)/sigma0)**2))
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
         print(p)
@@ -342,7 +342,7 @@ def benchmark_epx(pointlist):
             npoints.append(el)
             weights_index.append(i)
             chisq.append(np.sum(((data.testfunc_lin_np(data_exp.x,*p[0].detach().numpy())-data_exp.y)/sigma0)**2))
-            chisq_transformed.append(np.sum(weights*((data.testfunc_exp_np(data_exp.x,*p[0].detach().numpy())-data_exp.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights[i]*((data.testfunc_exp_np(data_exp.x,*p[0].detach().numpy())-data_exp.y)/sigma0)**2))
 
         t1_stop = time.time()
         comp_time_exp.append(t1_stop - t1_start)
