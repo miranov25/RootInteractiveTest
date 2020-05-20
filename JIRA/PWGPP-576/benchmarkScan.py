@@ -25,11 +25,13 @@ data_lin = data.testdata()
 data_lin.setfunclin()
 
 #pointlist = [10,100,1000,10000,100000,1000000]
-pointlist = [10, 100, 1000,10000, 100000]
-#pointlist = [1000, 10000]
+#pointlist = [10, 100, 1000,10000, 100000]
+pointlist = [1000, 10000]
 nfits = 100
 sigma0=0.1
 eps=1e-3
+
+np.random.seed(72654126)
 
 lin_parameter_list = []
 lin_parameter_list_org = []
