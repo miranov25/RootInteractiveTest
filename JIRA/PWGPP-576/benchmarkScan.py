@@ -7,6 +7,7 @@ Created on Tue Apr 28 16:25:28 2020
 # TODO - parameterize optimizer_options and fit_options (starting from pytorch)
 
 import numpy as np
+import tensorflow as tf
 import data
 from FitterBFGS import bfgsfitter
 import scipy.optimize
@@ -81,28 +82,26 @@ def benchmark_linear(pointList):
         # bfgsfitter
         t1_start = time.time()
         for i in range(nfits):
-            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y)
-            if (i == 0):
-                lin_parameter_list.append(p)
-                lin_parameter_list_sigma.append(q)
+            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y,weights=tf.constant(weights[i]/sigma0**2))
+            weights_index.append(i)
+            params.append(p.numpy())
+            covs.append(np.diag(q.numpy()))
+            params_true.append(data_lin.params)
+            optimizers.append("Tensorflow_BFGS")
+            npoints.append(el)
+            chisq.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p.numpy())-data_lin.y)/sigma0)**2))
+            chisq_transformed.append(np.sum(weights[i]*((data.testfunc_lin_np(data_lin.x,*p.numpy())-data_lin.y)/sigma0)**2))
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(p)
         print(q)
         print(t1_stop - t1_start)
-        weights_index.append(0)
-        params.append(p.numpy())
-        covs.append(np.diag(q.numpy()))
-        params_true.append(data_lin.params)
-        optimizers.append("Tensorflow_BFGS")
-        npoints.append(el)
-        chisq.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p.numpy())-data_lin.y)/sigma0)**2))
-        chisq_transformed.append(np.sum(((data.testfunc_lin_np(data_lin.x,*p.numpy())-data_lin.y)/sigma0)**2))
+
 
         # second fit after initializiation
         t1_start = time.time()
         for i in range(nfits):
-            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y)
+            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y,weights=tf.constant(weights[i]/sigma0**2))
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(t1_stop - t1_start)
@@ -133,7 +132,7 @@ def benchmark_linear(pointList):
         for i in range(nfits):
             p, q = fitter_torch.curve_fit(data.testfunc_lin_torch, x, y,
                                              [torch.ones(2, requires_grad=True, dtype=torch.float64)],weights=torch.from_numpy(weights[i]/sigma0**2),
-                                             ytol=1e-8)
+                                             ytol=1e-8,xtol=1e-8,max_steps=100)
 
             params.append(p[0].detach().numpy())
             covs.append(np.diag(q.numpy()))
