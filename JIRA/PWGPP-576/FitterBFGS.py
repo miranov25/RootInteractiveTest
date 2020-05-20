@@ -5,7 +5,7 @@ import numpy as np
 import inspect
 
 
-def mse(y_pred, y_true):
+def mse(y_pred, y_true,weights=1):
         """
         standard loss: mean squared error
 
@@ -13,7 +13,7 @@ def mse(y_pred, y_true):
         @param y_true: target value
         @return: mse
         """
-        return tf.reduce_mean((y_pred - y_true )**2)
+        return tf.reduce_mean(weights*(y_pred - y_true )**2)
 
 
 class bfgsfitter:
@@ -52,6 +52,8 @@ class bfgsfitter:
         
     def loss(self,paramlist):
         self.y_pred = self.fitfunc(self.x,*tf.unstack(paramlist))
+        if "weights" in self.options["weights"]:
+            return self.options["loss"](self.y_pred,self.y_true,self.options["weights"]["weights"])
         return self.options["loss"](self.y_pred,self.y_true)
     
     def quadratic_loss_and_gradient(self,x):
