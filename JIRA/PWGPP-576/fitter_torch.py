@@ -10,6 +10,8 @@ import torch.nn
 import torch.optim
 
 import math
+import numpy as np
+import pandas as pd
 
 def mse(x,y,weights,invsigma):
     """
@@ -47,16 +49,14 @@ def curve_fit(fitfunc,x,y,params, weights = None, sigma = None, lossfunc = None,
     if lossfunc is None:
         if sigma is None:
             lossfunc = mse
-        elif sigma.shape == y.shape:
+        else: # sigma.shape == y.shape:
             lossfunc = mse
-        else:
-            lossfunc = mse_matrix_sigma
+        #else:
+        #    lossfunc = mse_matrix_sigma
     if sigma is None:
         invsigma = 1
-    elif sigma.shape == y.shape:
-        invsigma = 1/sigma
     else:
-        invsigma = sigma.cholesky()
+        invsigma = 1/sigma
 
     if weights is None:
         weights = 1/y.size(0)
@@ -81,11 +81,11 @@ def curve_fit(fitfunc,x,y,params, weights = None, sigma = None, lossfunc = None,
         
         newparams = torch.cat([i.flatten() for i in params])
         
-        stall = max(torch.max(torch.abs(newparams-oldparams)) for i in params) < xtol
+        stall = torch.max(torch.abs(newparams-oldparams)) < xtol
         
         oldparams = newparams
         
-        if optcond or stall or math.isnan(params[0].data[0].item()):
+        if optcond or stall or math.isnan(torch.sum(newparams).item()):
             break
    # print(i)        
     optimizer.zero_grad()
@@ -95,7 +95,54 @@ def curve_fit(fitfunc,x,y,params, weights = None, sigma = None, lossfunc = None,
     
     if len(params) == 1:
         hessian = torch.autograd.functional.hessian(lambda a:lossfunc(y,fitfunc(x,a),weights,invsigma),params[0])
+        return params,hessian.detach().pinverse()*loss
     else:
-        hessian = torch.autograd.functional.hessian(lambda a:lossfunc(y,fitfunc(x,*a),weights,invsigma),tuple(params))
+        hessian = torch.autograd.functional.hessian(lambda *a:lossfunc(y,fitfunc(x,*a),weights,invsigma),tuple(params))
+        return params,hessian.detach().pinverse()*loss
     
     return params,hessian.detach().pinverse()*loss
+
+def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fitter_options={},fitter_name='Pytorch_LBFGS'):
+
+    weights_idx=[]
+    fitted_params = []
+    errors=[]
+
+    n = y.shape[0]
+    
+    if weights is None:
+        weights = bootstrap_weights(nbootstrap,n)
+        
+    if not torch.is_tensor(weights):
+        weights = torch.from_numpy(weights)
+
+    if not torch.is_tensor(x):
+        x = torch.from_numpy(x)
+        y = torch.from_numpy(y)
+    
+    for i in range(nbootstrap):
+        p0 = init_params[i]
+        if torch.is_tensor(p0):
+            p_init = [p0.clone().detach().requires_grad_(True)]
+        else:
+            p_init = [torch.tensor(i,requires_grad=True) for i in p0]
+        p,q = curve_fit(fitfunc,x,y,p_init,weights=weights[i],sigma=sigma0,**fitter_options)
+        fitted_params.append(np.concatenate([j.detach() for j in p]))
+        errors.append(np.sqrt(np.diag(q)))
+        weights_idx.append(i)
+        
+    df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx)    
+    return df,weights
+
+def create_benchmark_df(optimizers,params,covs,npoints,idx):
+    params = np.stack(params)
+    covs = np.stack(covs)
+    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx}
+    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
+    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
+    df = pd.DataFrame(d)
+    return df
+
+def bootstrap_weights(nfits,npoints):
+    return torch.stack([torch.bincount(torch.randint(0,npoints,[npoints]),minlength=npoints) for i in range(nfits)])
+
