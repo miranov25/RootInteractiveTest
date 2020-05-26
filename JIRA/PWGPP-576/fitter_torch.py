@@ -107,6 +107,8 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
     weights_idx=[]
     fitted_params = []
     errors=[]
+    chisq=[]
+    chisq_transformed=[]
 
     n = y.shape[0]
     
@@ -130,14 +132,20 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
         fitted_params.append(np.concatenate([j.detach() for j in p]))
         errors.append(np.sqrt(np.diag(q)))
         weights_idx.append(i)
+        with torch.no_grad():
+            y_fit = fitfunc(x,*p)
+            loss = torch.sum(((y-y_fit)/sigma0)**2)         
+            loss_transformed = torch.sum(weights[i]*((y-y_fit)/sigma0)**2)  
+        chisq.append(loss)
+        chisq_transformed.append(loss_transformed)
         
     df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx)    
     return df,weights
 
-def create_benchmark_df(optimizers,params,covs,npoints,idx):
+def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed):
     params = np.stack(params)
     covs = np.stack(covs)
-    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx}
+    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed}
     d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
     d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
     df = pd.DataFrame(d)
