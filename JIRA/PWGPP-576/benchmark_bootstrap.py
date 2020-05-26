@@ -19,8 +19,8 @@ import fitter_torch
 
 npoints = 10000
 pointlist = [1000, 10000]
-nfits = 50
-nbootstrap = 50
+nfits = 20
+nbootstrap = 20
 
 sigma0=.1
 sigma_initial_guess=[.2,.1]
@@ -47,9 +47,18 @@ def benchmark_lin():
             #fitter = bfgsfitter(data.testfunc_lin)
             #df0 = f.curve_fit_BS(x, y,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
             #frames.append(df0)
+            #df0["fit_idx"] = ifit + nfits*idx
+            t0 = time.time()
             df0,weights=bootstrap_scipy(data_lin.x, data_lin.y,data.testfunc_lin_np,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
+            t1 = time.time()
+            df0["fit_idx"] = ifit + nfits*idx
+            df0["time"] = (t1-t0)/nbootstrap
             frames.append(df0)
+            t0 = time.time()
             df0,weights=fitter_torch.curve_fit_BS(data_lin.x, data_lin.y,data.testfunc_lin_torch,init_params=torch.from_numpy(p0),weights=weights,sigma0=sigma0,nbootstrap=nbootstrap)
+            t1 = time.time()
+            df0["fit_idx"] = ifit + nfits*idx
+            df0["time"] = (t1-t0)/nbootstrap
             frames.append(df0)
     df = pd.concat(frames)
     return df
