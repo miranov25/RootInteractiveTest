@@ -51,17 +51,23 @@ def benchmark_lin():
             frames.append(df0)
             df0["fit_idx"] = ifit + nfits*idx
             df0["time"] = (t1-t0)/nbootstrap
+            for a,b in enumerate(data_lin.params):
+                df0[str.format("params_true_{}",a)]=b
             t0 = time.time()
             df0,weights=bootstrap_scipy(data_lin.x, data_lin.y,data.testfunc_lin_np,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
             t1 = time.time()
             df0["fit_idx"] = ifit + nfits*idx
             df0["time"] = (t1-t0)/nbootstrap
+            for a,b in enumerate(data_lin.params):
+                df0[str.format("params_true_{}",a)]=b
             frames.append(df0)
             t0 = time.time()
             df0,weights=fitter_torch.curve_fit_BS(data_lin.x, data_lin.y,data.testfunc_lin_torch,init_params=torch.from_numpy(p0),weights=weights,sigma0=sigma0,nbootstrap=nbootstrap)
             t1 = time.time()
             df0["fit_idx"] = ifit + nfits*idx
             df0["time"] = (t1-t0)/nbootstrap
+            for a,b in enumerate(data_lin.params):
+                df0[str.format("params_true_{}",a)]=b
             frames.append(df0)
     df = pd.concat(frames)
     return df
@@ -102,3 +108,5 @@ def bootstrap_scipy(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,
     return df,weights
 
 df = benchmark_lin()
+
+df.to_pickle("benchmark_linear.pkl")
