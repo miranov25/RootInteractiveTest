@@ -44,10 +44,13 @@ def benchmark_lin():
         for ifit in range(nfits):
             data_lin.setxy(el,sigma0)
             p0 = np.random.normal(data_lin.params,sigma_initial_guess,[nfits,2])
-            #fitter = bfgsfitter(data.testfunc_lin)
-            #df0 = f.curve_fit_BS(x, y,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
-            #frames.append(df0)
-            #df0["fit_idx"] = ifit + nfits*idx
+            fitter = bfgsfitter(data.testfunc_lin_np)
+            t0 = time.time()
+            df0 = fitter.curve_fit_BS(data_lin.x, data_lin.y,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
+            t1 = time.time()
+            frames.append(df0)
+            df0["fit_idx"] = ifit + nfits*idx
+            df0["time"] = (t1-t0)/nbootstrap
             t0 = time.time()
             df0,weights=bootstrap_scipy(data_lin.x, data_lin.y,data.testfunc_lin_np,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
             t1 = time.time()
