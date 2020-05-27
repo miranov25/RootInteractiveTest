@@ -129,15 +129,15 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
         else:
             p_init = [torch.tensor(i,requires_grad=True) for i in p0]
         p,q = curve_fit(fitfunc,x,y,p_init,weights=weights[i],sigma=sigma0,**fitter_options)
-        fitted_params.append(np.concatenate([j.detach() for j in p]))
-        errors.append(np.sqrt(np.diag(q)))
+        fitted_params.append(np.concatenate([j.detach().numpy() for j in p]))
+        errors.append(np.sqrt(np.diag(q.numpy())))
         weights_idx.append(i)
         with torch.no_grad():
             y_fit = fitfunc(x,*p)
             loss = torch.sum(((y-y_fit)/sigma0)**2)         
             loss_transformed = torch.sum(weights[i]*((y-y_fit)/sigma0)**2)  
-        chisq.append(loss)
-        chisq_transformed.append(loss_transformed)
+        chisq.append(loss.numpy())
+        chisq_transformed.append(loss_transformed.numpy())
         
     df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed)    
     return df,weights
