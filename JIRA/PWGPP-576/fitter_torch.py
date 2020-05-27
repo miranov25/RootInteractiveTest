@@ -139,7 +139,7 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
         chisq.append(loss)
         chisq_transformed.append(loss_transformed)
         
-    df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx)    
+    df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed)    
     return df,weights
 
 def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed):
