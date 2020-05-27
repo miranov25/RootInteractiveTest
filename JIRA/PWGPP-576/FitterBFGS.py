@@ -113,7 +113,7 @@ class bfgsfitter:
         return out
 
 
-    def curve_fit_BS(self,x, y, init_params,sigma0=1,weights=None,nbootstrap=5,fitter_options={},fitter_name='Pytorch_LBFGS',**kwargs):
+    def curve_fit_BS(self,x, y, init_params,sigma0=1,weights=None,nbootstrap=5,fitter_options={},fitter_name='Tensorflow_BFGS',**kwargs):
         """
         curve fitting with error calculation via bootstrapping
 
@@ -139,12 +139,12 @@ class bfgsfitter:
             p,q = self.curve_fit(x, y, weights=weights[i]/sigma0**2,**kwargs)
             paramsBS.append(p.numpy())
             errorsBS.append(np.sqrt(np.diag(q.numpy())))
+            weights_idx.append(i)
             chisq.append(self.options["loss"](self.y_pred,self.y_true))
             if "weights" in self.options["weights"]:
                 chisq_transformed.append(self.options["loss"](self.y_pred,self.y_true,self.options["weights"]["weights"]))
             else:
                 chisq_transformed.append(chisq[-1])
-        paramsBS = np.array(paramsBS)
         df = create_benchmark_df(fitter_name,paramsBS,errorsBS,npoints,weights_idx,chisq,chisq_transformed) 
         return df
 
