@@ -140,13 +140,13 @@ class bfgsfitter:
             paramsBS.append(p.numpy())
             errorsBS.append(np.sqrt(np.diag(q.numpy())))
             weights_idx.append(i)
-            chisq.append(self.options["loss"](self.y_pred,self.y_true))
+            chisq.append(self.options["loss"](self.y_pred,self.y_true).numpy())
             if "weights" in self.options["weights"]:
-                chisq_transformed.append(self.options["loss"](self.y_pred,self.y_true,self.options["weights"]["weights"]))
+                chisq_transformed.append(self.options["loss"](self.y_pred,self.y_true,self.options["weights"]["weights"]).numpy())
             else:
                 chisq_transformed.append(chisq[-1])
         df = create_benchmark_df(fitter_name,paramsBS,errorsBS,npoints,weights_idx,chisq,chisq_transformed) 
-        return df
+        return df,weights
 
 def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed):
     params = np.stack(params)
