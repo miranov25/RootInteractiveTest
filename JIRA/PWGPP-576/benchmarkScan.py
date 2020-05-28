@@ -34,6 +34,8 @@ eps=1e-3
 
 np.random.seed(72654126)
 
+lin_initial_guess_sigma = .4
+
 lin_parameter_list = []
 lin_parameter_list_org = []
 lin_parameter_list_sigma = []
@@ -47,7 +49,7 @@ def cuda_curve_fit_sync(*args, **kwargs):
     return x
 
 def bootstrap_weights(nfits,npoints):
-    return np.stack(np.bincount(np.random.randint(0,npoints,npoints),minlength=npoints) for i in range(nfits))
+    return np.stack([np.bincount(np.random.randint(0,npoints,npoints),minlength=npoints) for i in range(nfits)])
 
 def create_benchmark_df(name,optimizers,params_true,params,covs,npoints,idx,chisq,chisq_transformed):
     params = np.stack(params)
@@ -79,10 +81,11 @@ def benchmark_linear(pointList):
         #weights = np.random.rand(nfits,el)*2
         weights = bootstrap_weights(nfits,el)+eps
         weights[0] = np.ones(el)
+        p0 = np.random.normal(data_lin.params,lin_initial_guess_sigma,[nfits,2])
         # bfgsfitter
         t1_start = time.time()
         for i in range(nfits):
-            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y,weights=tf.constant(weights[i]/sigma0**2))
+            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y,weights=tf.constant(weights[i]/sigma0**2),initial_parameters=tf.cast(p0[i],tf.float32))
             weights_index.append(i)
             params.append(p.numpy())
             covs.append(np.diag(q.numpy()))
@@ -101,7 +104,7 @@ def benchmark_linear(pointList):
         # second fit after initializiation
         t1_start = time.time()
         for i in range(nfits):
-            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y,weights=tf.constant(weights[i]/sigma0**2))
+            p, q = lin_fitter.curve_fit(data_lin.x, data_lin.y,weights=tf.constant(weights[i]/sigma0**2),initial_parameters=tf.cast(p0[i],tf.float32))
         t1_stop = time.time()
         comp_time_lin.append(t1_stop - t1_start)
         print(t1_stop - t1_start)
@@ -109,7 +112,7 @@ def benchmark_linear(pointList):
         # scipy
         t1_start = time.time()
         for i in range(nfits):
-            p, q = scipy.optimize.curve_fit(data.testfunc_lin_np, data_lin.x, data_lin.y,sigma=sigma0/np.sqrt(weights[i]))
+            p, q = scipy.optimize.curve_fit(data.testfunc_lin_np, data_lin.x, data_lin.y,sigma=sigma0/np.sqrt(weights[i]),p0=p0[i])
             params.append(p)
             covs.append(np.diag(q))
             params_true.append(data_lin.params)
@@ -131,7 +134,7 @@ def benchmark_linear(pointList):
         y = torch.from_numpy(data_lin.y)
         for i in range(nfits):
             p, q = fitter_torch.curve_fit(data.testfunc_lin_torch, x, y,
-                                             [torch.ones(2, requires_grad=True, dtype=torch.float64)],weights=torch.from_numpy(weights[i]/sigma0**2),
+                                             [torch.tensor(p0[i], requires_grad=True)],weights=torch.from_numpy(weights[i]/sigma0**2),
                                              ytol=1e-8,xtol=1e-8,max_steps=100)
 
             params.append(p[0].detach().numpy())
