@@ -3,9 +3,9 @@ import tensorflow_probability as tfp
 from sklearn.utils import resample
 import numpy as np
 import inspect
+import pandas as pd
 
-
-def mse(y_pred, y_true):
+def mse(y_pred, y_true,weights=1):
         """
         standard loss: mean squared error
 
@@ -13,7 +13,7 @@ def mse(y_pred, y_true):
         @param y_true: target value
         @return: mse
         """
-        return tf.reduce_mean((y_pred - y_true )**2)
+        return tf.reduce_mean(weights*(y_pred - y_true )**2)
 
 
 class bfgsfitter:
@@ -52,6 +52,8 @@ class bfgsfitter:
         
     def loss(self,paramlist):
         self.y_pred = self.fitfunc(self.x,*tf.unstack(paramlist))
+        if "weights" in self.options["weights"]:
+            return self.options["loss"](self.y_pred,self.y_true,self.options["weights"]["weights"])
         return self.options["loss"](self.y_pred,self.y_true)
     
     def quadratic_loss_and_gradient(self,x):
@@ -62,7 +64,7 @@ class bfgsfitter:
         return tfp.optimizer.bfgs_minimize(self.quadratic_loss_and_gradient, initial_position=self.paramlist, tolerance=self.tolerance)
             
     
-    @tf.function(experimental_compile=True)
+#    @tf.function(experimental_compile=True)
     def curve_fit(self, x, y, **kwargs):
         """
         curve fitting with error calculation via covariance matrix
@@ -87,7 +89,7 @@ class bfgsfitter:
         optim_results = self.optim()
     
         params = optim_results[4]
-        cov = (4*optim_results[7]/len(x))*self.loss(params)
+        cov = (4*optim_results[7]/x.shape[0])*self.loss(params)
         
         return params, cov
     
@@ -111,7 +113,7 @@ class bfgsfitter:
         return out
 
 
-    def curve_fit_BS(x, y, **kwargs):
+    def curve_fit_BS(self,x, y, init_params,sigma0=1,weights=None,nbootstrap=5,fitter_options={},fitter_name='Tensorflow_BFGS',**kwargs):
         """
         curve fitting with error calculation via bootstrapping
 
@@ -122,17 +124,44 @@ class bfgsfitter:
         @return: values of fitted parameters, errors from bootstrapping
 
         """
-        options = {
-            "BS_samples": 5
-        }
-        options.update(kwargs)
 
+        npoints = y.shape[0]
+        if weights is None:
+            weights = bootstrap_weights(nbootstrap,npoints)
         # error calculation via Bootstrapping
-        BS_samples = options["BS_samples"]
         paramsBS = []
-        for i in range(BS_samples):
-            sample = resample(np.array([x, y]).transpose()).transpose()
-            numpylist,_ = curve_fit(tf.stack(sample[0]), sample[1], **kwargs)
-            paramsBS.append(numpylist.numpy())
-        paramsBS = np.array(paramsBS)
-        return paramsBS.mean(axis=0), paramsBS.std(axis=0)
+        errorsBS = []
+        weights_idx=[]
+        chisq=[]
+        chisq_transformed=[]
+        for i in range(nbootstrap):
+            #sample = resample(np.array([x, y]).transpose()).transpose()
+            p,q = self.curve_fit(x, y, weights=weights[i]/sigma0**2,**kwargs)
+            paramsBS.append(p.numpy())
+            errorsBS.append(np.sqrt(np.diag(q.numpy())))
+            weights_idx.append(i)
+            chisq.append(tf.reduce_sum(((self.y_pred - self.y_true )/sigma0)**2).numpy())
+            if "weights" in self.options["weights"]:
+                chisq_transformed.append(self.options["loss"](self.y_pred,self.y_true,self.options["weights"]["weights"]).numpy())
+            else:
+                chisq_transformed.append(chisq[-1])
+                
+        params = np.stack(paramsBS)
+        mean = np.mean(params,0)
+        median = np.median(params,0)
+        std = np.std(params,0)
+            
+        df = create_benchmark_df(fitter_name,paramsBS,errorsBS,npoints,weights_idx,chisq,chisq_transformed) 
+        return df,mean,median,std,weights
+
+def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed):
+    params = np.stack(params)
+    covs = np.stack(covs)
+    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed}
+    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
+    d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
+    df = pd.DataFrame(d)
+    return df
+
+def bootstrap_weights(nfits,npoints):
+    return np.stack([np.bincount(np.random.randint(0,npoints,[npoints]),minlength=npoints) for i in range(nfits)])
