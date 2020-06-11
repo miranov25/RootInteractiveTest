@@ -212,7 +212,69 @@ def bootstrap_scipy(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,
     std = np.std(params,0)
     return df,mean,median,std,weights
 
-df,df1 = benchmark_lin()
+df2,df1 = benchmark_lin()
 
-df.to_pickle("benchmark_linear_eachfit.pkl")
+df2.to_pickle("benchmark_linear_eachfit.pkl")
 df1.to_pickle("benchmark_linear_bootstrap.pkl")
+
+df1["delta_0"] = df1["params_true_0"] - df1["params_0"]
+df1["delta_1"] = df1["params_true_1"] - df1["params_1"]
+df1["pull_0"] = df1["delta_0"] / df1["errors_0"]
+df1["pull_1"] = df1["delta_1"] / df1["errors_1"]
+#
+df1_tf = df1.query("fitter_name=='Tensorflow_BFGS'")
+df1_scipy= df1.query("fitter_name=='Scipy_LM'")
+df1_torch= df1.query("fitter_name=='Pytorch_LBFGS'")
+N = len(df1_tf.index)
+
+print("Fit type:\tmean\t\trms_estimate\t\tstatus")
+print("Tensorflow:\t%8.6F\t%8.6F\t%8.0F" % (df1_tf["delta_0"].mean(), df1_tf["errors_0"].mean()/np.sqrt(N), \
+      np.abs(df1_tf["delta_0"].mean())< 3* df1_tf["errors_0"].mean()/np.sqrt(N)))
+print("Scipy:      \t%8.6F\t%8.6F\t%8.0F" % (df1_scipy["delta_0"].mean(), df1_scipy["errors_0"].mean()/np.sqrt(N), \
+      np.abs(df1_scipy["delta_0"].mean())< 3* df1_scipy["errors_0"].mean()/np.sqrt(N)))
+print("Pytorch:      \t%8.6F\t%8.6F\t%8.0F" % (df1_torch["delta_0"].mean(), df1_torch["errors_0"].mean()/np.sqrt(N), \
+      np.abs(df1_torch["delta_0"].mean())< 3* df1_torch["errors_0"].mean()/np.sqrt(N)))
+print("Tensorflow:\t%8.6F\t%8.6F\t%8.0F" % (df1_tf["delta_1"].mean(), df1_tf["errors_1"].mean()/np.sqrt(N), \
+      np.abs(df1_tf["delta_1"].mean())< 3* df1_tf["errors_1"].mean()/np.sqrt(N)))
+print("Scipyi:      \t%8.6F\t%8.6F\t%8.0F" % (df1_scipy["delta_1"].mean(), df1_scipy["errors_1"].mean()/np.sqrt(N), \
+      np.abs(df1_scipy["delta_1"].mean())< 3* df1_scipy["errors_1"].mean()/np.sqrt(N)))
+print("Pytorch:      \t%8.6F\t%8.6F\t%8.0F" % (df1_torch["delta_1"].mean(), df1_torch["errors_1"].mean()/np.sqrt(N), \
+      np.abs(df1_torch["delta_1"].mean())< 3* df1_torch["errors_1"].mean()/np.sqrt(N)))
+
+print("Fit type:\tstd\t\tbootstrap_std\t\trms_estimate\t status")
+isOK=np.abs(df1_tf["delta_0"].std()-df1_tf["errors_0"].mean())<3*df1_tf["errors_0"].mean()/np.sqrt(N)
+print("Tensorflow:\t%8.6F\t%8.6F\t\t%8.6F\t%2.0F" % (df1_tf["delta_0"].std(),df1_tf["bs_std_0"].mean(), df1_tf["errors_0"].mean(),isOK))
+
+isOK=np.abs(df1_scipy["delta_0"].std()-df1_scipy["errors_0"].mean())<3*df1_scipy["errors_0"].mean()/np.sqrt(N)
+print("Scipy:\t\t%8.6F\t%8.6F\t\t%8.6F\t%2.0F" % (df1_scipy["delta_0"].std(),df1_scipy["bs_std_0"].mean(), df1_scipy["errors_0"].mean(),isOK))
+
+isOK=np.abs(df1_torch["delta_0"].std()-df1_torch["errors_0"].mean())<3*df1_torch["errors_0"].mean()/np.sqrt(N)
+print("Pytorch:\t%8.6F\t%8.6F\t\t%8.6F\t%2.0F" % (df1_torch["delta_0"].std(),df1_torch["bs_std_0"].mean(), df1_torch["errors_0"].mean(),isOK))
+
+isOK=np.abs(df1_tf["delta_1"].std()-df1_tf["errors_1"].mean())<3*df1_tf["errors_1"].mean()/np.sqrt(N)
+print("Tensorflow:\t%8.6F\t%8.6F\t\t%8.6F\t%2.0F" % (df1_tf["delta_1"].std(),df1_tf["bs_std_1"].mean(), df1_tf["errors_1"].mean(),isOK))
+
+isOK=np.abs(df1_scipy["delta_1"].std()-df1_scipy["errors_1"].mean())<3*df1_scipy["errors_1"].mean()/np.sqrt(N)
+print("Scipy:\t\t%8.6F\t%8.6F\t\t%8.6F\t%2.0F" % (df1_scipy["delta_1"].std(),df1_scipy["bs_std_1"].mean(), df1_scipy["errors_1"].mean(),isOK))
+
+isOK=np.abs(df1_torch["delta_1"].std()-df1_torch["errors_1"].mean())<3*df1_torch["errors_1"].mean()/np.sqrt(N)
+print("Pytorch:\t%8.6F\t%8.6F\t\t%8.6F\t%2.0F" % (df1_torch["delta_1"].std(),df1_torch["bs_std_1"].mean(), df1_torch["errors_1"].mean(),isOK))
+
+print("Fit type:\tpull mean\tpull std\tstatus")
+isOK=np.abs(df1_tf["pull_0"].mean())<3/np.sqrt(N) and np.abs(df1_tf["pull_0"].std()-1)<3/np.sqrt(N)
+print("Tensorflow:\t%8.6F\t%8.6F\t%2.0F" % (df1_tf["pull_0"].mean(),df1_tf["pull_0"].std(),isOK))
+
+isOK=np.abs(df1_scipy["pull_0"].mean())<3/np.sqrt(N) and np.abs(df1_scipy["pull_0"].std()-1)<3/np.sqrt(N)
+print("Scipy:\t\t%8.6F\t%8.6F\t%2.0F" % (df1_scipy["pull_0"].mean(),df1_scipy["pull_0"].std(),isOK))
+
+isOK=np.abs(df1_torch["pull_0"].mean())<3/np.sqrt(N) and np.abs(df1_torch["pull_0"].std()-1)<3/np.sqrt(N)
+print("Pytorch:\t%8.6F\t%8.6F\t%2.0F" % (df1_torch["pull_0"].mean(),df1_torch["pull_0"].std(),isOK))
+
+isOK=np.abs(df1_tf["pull_1"].mean())<3/np.sqrt(N) and np.abs(df1_tf["pull_1"].std()-1)<3/np.sqrt(N)
+print("Tensorflow:\t%8.6F\t%8.6F\t%2.0F" % (df1_tf["pull_1"].mean(),df1_tf["pull_1"].std(),isOK))
+
+isOK=np.abs(df1_scipy["pull_1"].mean())<3/np.sqrt(N) and np.abs(df1_scipy["pull_1"].std()-1)<3/np.sqrt(N)
+print("Scipy:\t\t%8.6F\t%8.6F\t%2.0F" % (df1_scipy["pull_1"].mean(),df1_scipy["pull_1"].std(),isOK))
+
+isOK=np.abs(df1_torch["pull_1"].mean())<3/np.sqrt(N) and np.abs(df1_torch["pull_1"].std()-1)<3/np.sqrt(N)
+print("Pytorch:\t%8.6F\t%8.6F\t%2.0F" % (df1_torch["pull_1"].mean(),df1_torch["pull_1"].std(),isOK))
