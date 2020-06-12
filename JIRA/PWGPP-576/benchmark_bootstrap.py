@@ -17,6 +17,8 @@ import pandas as pd
 import torch
 import fitter_torch
 
+np.random.seed(72654126)
+
 npoints = 10000
 pointlist = [1000, 10000]
 nfits = 50
@@ -50,13 +52,14 @@ def benchmark_lin():
     bs_std = []
     number_points = []
     t = []
-    fitterTF = bfgsfitter(data.testfunc_lin_np)
     for idx, el in enumerate(pointlist):
+        fitterTF = bfgsfitter(data.testfunc_lin_np)
+        weights = bootstrap_weights(nbootstrap,el).astype(np.float32)
         for ifit in range(nfits):
             print("idx:", idx, "Fit ",ifit)
             data_lin.setxy(el,sigma0)
             p0 = np.random.normal(data_lin.params,sigma_initial_guess,[nfits,2]).astype(np.float32)
-            p,q = fitterTF.curve_fit(data_lin.x,data_lin.y,initial_parameters=p0[0],sigma0=sigma0)
+            p,q = fitterTF.curve_fit(data_lin.x,data_lin.y,initial_parameters=p0[0],weights=1/sigma0**2)
             #print(p.numpy()); print(q.numpy())
             params.append(p.numpy())
             errors.append(np.sqrt(np.diag(q.numpy())))
@@ -65,7 +68,7 @@ def benchmark_lin():
             fit_idx.append(ifit + nfits*idx)
             fitter_name.append("Tensorflow_BFGS")
             t0 = time.time()
-            df0,mean,median,std,weights = fitterTF.curve_fit_BS(data_lin.x, data_lin.y,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
+            df0,mean,median,std,_ = fitterTF.curve_fit_BS(data_lin.x, data_lin.y,weights=weights,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
             t1 = time.time()
             frames.append(df0)
             df0["fit_idx"] = ifit + nfits*idx
@@ -138,6 +141,16 @@ def benchmark_lin():
 
 def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initial_guess,generate_params,xmin=-1,xmax=1,weights=None):
     frames = []
+    params = []
+    errors = []
+    params_true = []
+    fit_idx = []
+    fitter_name = []
+    bs_mean = []
+    bs_median = []
+    bs_std = []
+    number_points = []
+    t = []
     if weights is None:
         weights = bootstrap_weights(nbootstrap,npoints)
     x = np.linspace(xmin,xmax,npoints)
@@ -147,7 +160,7 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
         p0 = np.random.normal(data_lin.params,sigma_initial_guess,[nfits,2])
         fitter = bfgsfitter(testfunc)
         t0 = time.time()
-        df0,mean,median,std,weights = fitter.curve_fit_BS(x, y,init_params=p0,sigma0=sigma0,nbootstrap=nbootstrap)
+        df0,mean,median,std,_ = fitter.curve_fit_BS(x, y,init_params=p0,weights=weights,sigma0=sigma0,nbootstrap=nbootstrap)
         t1 = time.time()
         frames.append(df0)
         df0["fit_idx"] = ifit
@@ -170,8 +183,8 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
         for a,b in enumerate(params):
             df0[str.format("params_true_{}",a)]=b
         frames.append(df0)
-    df = pd.concat(frames)
-    return df    
+    df2 = pd.concat(frames)
+    return df1,df2    
 
 def bootstrap_weights(nfits,npoints):
     return np.stack([np.bincount(np.random.randint(0,npoints,npoints),minlength=npoints) for i in range(nfits)])
@@ -230,15 +243,15 @@ N = len(df1_tf.index)
 print("Fit type:\tmean\t\trms_estimate\t\tstatus")
 print("Tensorflow:\t%8.6F\t%8.6F\t%8.0F" % (df1_tf["delta_0"].mean(), df1_tf["errors_0"].mean()/np.sqrt(N), \
       np.abs(df1_tf["delta_0"].mean())< 3* df1_tf["errors_0"].mean()/np.sqrt(N)))
-print("Scipy:      \t%8.6F\t%8.6F\t%8.0F" % (df1_scipy["delta_0"].mean(), df1_scipy["errors_0"].mean()/np.sqrt(N), \
+print("Scipy:\t%8.6F\t%8.6F\t%8.0F" % (df1_scipy["delta_0"].mean(), df1_scipy["errors_0"].mean()/np.sqrt(N), \
       np.abs(df1_scipy["delta_0"].mean())< 3* df1_scipy["errors_0"].mean()/np.sqrt(N)))
-print("Pytorch:      \t%8.6F\t%8.6F\t%8.0F" % (df1_torch["delta_0"].mean(), df1_torch["errors_0"].mean()/np.sqrt(N), \
+print("Pytorch:\t%8.6F\t%8.6F\t%8.0F" % (df1_torch["delta_0"].mean(), df1_torch["errors_0"].mean()/np.sqrt(N), \
       np.abs(df1_torch["delta_0"].mean())< 3* df1_torch["errors_0"].mean()/np.sqrt(N)))
 print("Tensorflow:\t%8.6F\t%8.6F\t%8.0F" % (df1_tf["delta_1"].mean(), df1_tf["errors_1"].mean()/np.sqrt(N), \
       np.abs(df1_tf["delta_1"].mean())< 3* df1_tf["errors_1"].mean()/np.sqrt(N)))
-print("Scipyi:      \t%8.6F\t%8.6F\t%8.0F" % (df1_scipy["delta_1"].mean(), df1_scipy["errors_1"].mean()/np.sqrt(N), \
+print("Scipyi:\t%8.6F\t%8.6F\t%8.0F" % (df1_scipy["delta_1"].mean(), df1_scipy["errors_1"].mean()/np.sqrt(N), \
       np.abs(df1_scipy["delta_1"].mean())< 3* df1_scipy["errors_1"].mean()/np.sqrt(N)))
-print("Pytorch:      \t%8.6F\t%8.6F\t%8.0F" % (df1_torch["delta_1"].mean(), df1_torch["errors_1"].mean()/np.sqrt(N), \
+print("Pytorch:\t%8.6F\t%8.6F\t%8.0F" % (df1_torch["delta_1"].mean(), df1_torch["errors_1"].mean()/np.sqrt(N), \
       np.abs(df1_torch["delta_1"].mean())< 3* df1_torch["errors_1"].mean()/np.sqrt(N)))
 
 print("Fit type:\tstd\t\tbootstrap_std\t\trms_estimate\t status")
