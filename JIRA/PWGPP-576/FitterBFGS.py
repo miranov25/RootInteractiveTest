@@ -55,11 +55,12 @@ class bfgsfitter:
         if "weights" in self.options["weights"]:
             return self.options["loss"](self.y_pred,self.y_true,self.options["weights"]["weights"])
         return self.options["loss"](self.y_pred,self.y_true)
-    
+
+   # @tf.function(experimental_compile=True)    
     def quadratic_loss_and_gradient(self,x):
         return tfp.math.value_and_gradient(self.loss,x)
     
-    @tf.function(experimental_compile=True)
+
     def optim(self):
         return tfp.optimizer.bfgs_minimize(self.quadratic_loss_and_gradient, initial_position=self.paramlist, tolerance=self.tolerance)
             
@@ -85,6 +86,9 @@ class bfgsfitter:
         self.paramlist = tf.ones([self.NUM_PARAMS])
         if len(options["initial_parameters"])!=0:
             self.paramlist = tf.stack(options["initial_parameters"])
+
+        if "weights" in options:
+            self.options["weights"]["weights"] = options["weights"]
 
         optim_results = self.optim()
     
