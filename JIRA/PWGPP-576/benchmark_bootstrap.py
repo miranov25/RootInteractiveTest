@@ -59,7 +59,7 @@ def benchmark_lin():
             print("idx:", idx, "Fit ",ifit)
             data_lin.setxy(el,sigma0)
             p0 = np.random.normal(data_lin.params,sigma_initial_guess,[nfits,2]).astype(np.float32)
-            p,q = fitterTF.curve_fit(data_lin.x,data_lin.y,initial_parameters=p0[0],weights=1/sigma0**2)
+            p,q = fitterTF.curve_fit(data_lin.x,data_lin.y,initial_parameters=p0[0])
             #print(p.numpy()); print(q.numpy())
             params.append(p.numpy())
             errors.append(np.sqrt(np.diag(q.numpy())))
@@ -72,7 +72,7 @@ def benchmark_lin():
             t1 = time.time()
             frames.append(df0)
             df0["fit_idx"] = ifit + nfits*idx
-            #df0["time"] = (t1-t0)/nbootstrap
+            df0["time"] = (t1-t0)/nbootstrap
             t.append(t1-t0)
             for a,b in enumerate(data_lin.params):
                 df0[str.format("params_true_{}",a)]=b
@@ -92,7 +92,7 @@ def benchmark_lin():
             df0,mean,median,std,_=bootstrap_scipy(data_lin.x, data_lin.y,data.testfunc_lin_np,init_params=p0,weights=weights,sigma0=sigma0,nbootstrap=nbootstrap)
             t1 = time.time()
             df0["fit_idx"] = ifit + nfits*idx
-            #df0["time"] = (t1-t0)/nbootstrap
+            df0["time"] = (t1-t0)/nbootstrap
             t.append(t1-t0)
             for a,b in enumerate(data_lin.params):
                 df0[str.format("params_true_{}",a)]=b
@@ -113,7 +113,7 @@ def benchmark_lin():
             df0,mean,median,std,_=fitter_torch.curve_fit_BS(data_lin.x, data_lin.y,data.testfunc_lin_np,init_params=p0,weights=weights,sigma0=sigma0,nbootstrap=nbootstrap)
             t1 = time.time()
             df0["fit_idx"] = ifit + nfits*idx
-            #df0["time"] = (t1-t0)/nbootstrap
+            df0["time"] = (t1-t0)/nbootstrap
             t.append(t1-t0)
             for a,b in enumerate(data_lin.params):
                 df0[str.format("params_true_{}",a)]=b
