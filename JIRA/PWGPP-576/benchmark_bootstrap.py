@@ -59,7 +59,7 @@ def benchmark_lin():
             print("idx:", idx, "Fit ",ifit)
             data_lin.setxy(el,sigma0)
             p0 = np.random.normal(data_lin.params,sigma_initial_guess,[nfits,2]).astype(np.float32)
-            p,q = fitterTF.curve_fit(data_lin.x,data_lin.y,initial_parameters=p0[0],weights=1/sigma0**2)
+            p,q = fitterTF.curve_fit(data_lin.x,data_lin.y,initial_parameters=p0[0])
             #print(p.numpy()); print(q.numpy())
             params.append(p.numpy())
             errors.append(np.sqrt(np.diag(q.numpy())))
