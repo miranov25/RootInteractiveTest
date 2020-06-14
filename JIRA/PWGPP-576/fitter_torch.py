@@ -28,7 +28,7 @@ def mse_matrix_sigma(x,y,weights,invsigma):
     v = torch.cholesky_solve(eps,invsigma)
     return (weights*eps).dot(v)
 
-def curve_fit(fitfunc,x,y,params, weights = 1, sigma = None, lossfunc = None, absolute_sigma=False, optimizer = 'lbfgs', ytol = 1e-5, xtol = 1e-5, max_steps = 20, optimizer_options={}):
+def curve_fit(fitfunc,x,y,params, weights = 1, sigma = None, lossfunc = None, absolute_sigma=False, optimizer = 'lbfgs', ytol = 1e-5, xtol = 1e-5, max_steps = 20, optimizer_options={},verbose=False):
     """
     curve fitting
 
@@ -107,15 +107,19 @@ def curve_fit(fitfunc,x,y,params, weights = 1, sigma = None, lossfunc = None, ab
             pcov = pcov * chisq
         else:
             pcov.fill(np.inf)
+            
+    if verbose:
+        return params,pcov,optimizer.state[params[0]]["func_evals"]
     return params,pcov
 
-def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fitter_options={},fitter_name='Pytorch_LBFGS'):
+def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fitter_options={},device=None,fitter_name='Pytorch_LBFGS'):
 
     weights_idx=[]
     fitted_params = []
     errors=[]
     chisq=[]
     chisq_transformed=[]
+    niter=[]
 
     n = y.shape[0]
 
@@ -135,28 +139,30 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
             p_init = [p0.clone().detach().requires_grad_(True)]
         else:
             p_init = [torch.tensor(i,requires_grad=True) for i in p0]
-        p,q = curve_fit(fitfunc,x,y,p_init,weights=weights[i],sigma=sigma0,**fitter_options)
-        fitted_params.append(np.hstack([j.detach().numpy() for j in p]))
-        errors.append(np.sqrt(np.diag(q.numpy())))
+        p,q,n = curve_fit(fitfunc,x,y,p_init,weights=weights[i],sigma=sigma0,**fitter_options,verbose=True)
+        fitted_params.append(np.hstack([j.detach().cpu().numpy() for j in p]))
+ #       fitted_params.append(torch.cat([j.detach() for j in p]).cpu().numpy())
+        errors.append(np.sqrt(np.diag(q.cpu().numpy())))
+        niter.append(n)
         weights_idx.append(i)
         with torch.no_grad():
             y_fit = fitfunc(x,*p)
             loss = torch.sum(((y-y_fit)/sigma0)**2)
             loss_transformed = torch.sum(weights[i]*((y-y_fit)/sigma0)**2)
-        chisq.append(loss.numpy())
-        chisq_transformed.append(loss_transformed.numpy())
+        chisq.append(loss.cpu().numpy())
+        chisq_transformed.append(loss_transformed.cpu().numpy())
     params = np.stack(fitted_params)
     mean = np.mean(params,0)
     median = np.median(params,0)
     std = np.std(params,0)
 
-    df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed)
+    df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed,niter)
     return df,mean,median,std,weights
 
-def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed):
+def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed,niter):
     params = np.stack(params)
     covs = np.stack(covs)
-    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed}
+    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed,'n_iter':niter}
     d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
     d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
     df = pd.DataFrame(d)
