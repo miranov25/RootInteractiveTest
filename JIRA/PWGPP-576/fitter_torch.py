@@ -121,7 +121,7 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
     chisq_transformed=[]
     niter=[]
 
-    n = y.shape[0]
+    npoints = y.shape[0]
 
     if weights is None:
         weights = bootstrap_weights(nbootstrap,n)
@@ -156,7 +156,7 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
     median = np.median(params,0)
     std = np.std(params,0)
 
-    df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed,niter)
+    df = create_benchmark_df(fitter_name,fitted_params,errors,npoints,weights_idx,chisq,chisq_transformed,niter)
     return df,mean,median,std,weights
 
 def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed,niter):
