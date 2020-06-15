@@ -21,8 +21,8 @@ np.random.seed(72654126)
 
 npoints = 10000
 pointlist = [1000, 10000,100000,1000000]
-nfits = 20
-nbootstrap = 20
+nfits = 15
+nbootstrap = 15
 
 sigma0=.1
 sigma_initial_guess=[.2,.1]
@@ -123,7 +123,7 @@ def benchmark_lin():
             bs_median.append(median)
             bs_std.append(std)
             
-            """
+            
             if torch.cuda.is_available():
                 p,q = fitter_torch.curve_fit(data.testfunc_lin_torch,torch.from_numpy(data_lin.x).cuda(),torch.from_numpy(data_lin.y).cuda(),[torch.tensor(p0[0],requires_grad=True,device="cuda:0")],sigma=torch.tensor(sigma0,device="cuda:0"))
                 #print(p[0].detach().numpy()); print(q.numpy())
@@ -134,7 +134,7 @@ def benchmark_lin():
                 fit_idx.append(ifit + nfits*idx)
                 fitter_name.append("Pytorch_LBFGS_CUDA")
                 t0 = time.time()
-                df0,mean,median,std,_=fitter_torch.curve_fit_BS(torch.from_numpy(data_lin.x).cuda(), torch.from_numpy(data_lin.y).cuda(),data.testfunc_lin_torch,init_params=torch.from_numpy(p0).cuda(),weights=torch.from_numpy(weights).cuda(),sigma0=torch.tensor(sigma0,device="cuda:0"),nbootstrap=nbootstrap,device="cuda:0")
+                df0,mean,median,std,_=fitter_torch.curve_fit_BS(torch.from_numpy(data_lin.x).cuda(), torch.from_numpy(data_lin.y).cuda(),data.testfunc_lin_torch,init_params=torch.from_numpy(p0).cuda(),weights=torch.from_numpy(weights).cuda(),sigma0=torch.tensor(sigma0,device="cuda:0"),nbootstrap=nbootstrap,device="cuda:0",fitter_name="Pytorch_LBFGS_CUDA")
                 torch.cuda.synchronize()
                 t1 = time.time()
                 df0["fit_idx"] = ifit + nfits*idx
@@ -146,7 +146,7 @@ def benchmark_lin():
                 bs_mean.append(mean)
                 bs_median.append(median)
                 bs_std.append(std)
-            """
+            
     df = pd.concat(frames)
     bs_mean = np.stack(bs_mean)
     bs_median = np.stack(bs_median)
@@ -298,3 +298,6 @@ N = len(df1_tf.index)
 test_mean(df1)
 test_rms(df1)
 test_pull(df1)
+
+df1.groupby(["fitter_name","number_points"]).mean()
+df2.groupby(["optimizers","number_points"]).mean()["n_iter"]
