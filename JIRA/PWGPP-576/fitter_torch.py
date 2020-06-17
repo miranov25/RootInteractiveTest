@@ -109,7 +109,7 @@ def curve_fit(fitfunc,x,y,params, weights = 1, sigma = None, lossfunc = None, ab
             pcov.fill(np.inf)
             
     if verbose:
-        return params,pcov,optimizer.state[params[0]]["func_evals"]
+        return params,pcov,optimizer.state
     return params,pcov
 
 def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fitter_options={},device=None,fitter_name='Pytorch_LBFGS'):
@@ -124,26 +124,26 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
     npoints = y.shape[0]
 
     if weights is None:
-        weights = bootstrap_weights(nbootstrap,n)
+        weights = bootstrap_weights(nbootstrap,npoints).to(device=device)
 
     if not torch.is_tensor(weights):
-        weights = torch.from_numpy(weights)
+        weights = torch.from_numpy(weights).to(device=device)
 
     if not torch.is_tensor(x):
-        x = torch.from_numpy(x)
-        y = torch.from_numpy(y)
+        x = torch.from_numpy(x).to(device=device)
+        y = torch.from_numpy(y).to(device=device)
 
     for i in range(nbootstrap):
         p0 = init_params[i]
         if torch.is_tensor(p0):
-            p_init = [p0.clone().detach().requires_grad_(True)]
+            p_init = [p0.clone().detach().to(device=device).requires_grad_(True)]
         else:
-            p_init = [torch.tensor(i,requires_grad=True) for i in p0]
-        p,q,n = curve_fit(fitfunc,x,y,p_init,weights=weights[i],sigma=sigma0,**fitter_options,verbose=True)
+            p_init = [torch.tensor(i,requires_grad=True,device=device) for i in p0]
+        p,q,fitter_state = curve_fit(fitfunc,x,y,p_init,weights=weights[i],sigma=sigma0,**fitter_options,verbose=True)
         fitted_params.append(np.hstack([j.detach().cpu().numpy() for j in p]))
  #       fitted_params.append(torch.cat([j.detach() for j in p]).cpu().numpy())
         errors.append(np.sqrt(np.diag(q.cpu().numpy())))
-        niter.append(n)
+        niter.append(fitter_state[p[0]]["func_evals"])
         weights_idx.append(i)
         with torch.no_grad():
             y_fit = fitfunc(x,*p)
@@ -162,7 +162,7 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
 def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed,niter):
     params = np.stack(params)
     covs = np.stack(covs)
-    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed,'n_iter':niter}
+    d = {'fitter_name':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed,'n_iter':niter}
     d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
     d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
     df = pd.DataFrame(d)
