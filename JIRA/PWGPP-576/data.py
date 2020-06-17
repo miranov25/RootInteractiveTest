@@ -29,13 +29,13 @@ def testfunc_sin_torch(x, a):
     return a[0]*torch.sin(a[1]*x)+a[2]
 
 def testfunc_exp(x, a, b):
-    return tf.exp(a*tf.cast(x,tf.float32))+b
+    return tf.exp(a*x)*b
 
 def testfunc_exp_np(x, a, b):
-    return np.exp(a*x)+b
+    return np.exp(a*x)*b
 
-def testfunc_exp_torch(x,a):
-    return torch.exp(a[0]*x)+a[1]
+def testfunc_exp_torch(x,a,b):
+    return torch.exp(a*x)*b
 
 def return_array(array_size, n, func):
     data_array = []
@@ -86,6 +86,6 @@ class testdata:
             param_list.append(np.random.uniform())
         for el in self.x:
             y_vals.append(np.random.normal(self.func(el, *param_list),sigma))
-        y_vals = np.stack(y_vals)
+        y_vals = np.stack(y_vals).astype(np.float32)
         self.y = y_vals
         self.params = param_list
