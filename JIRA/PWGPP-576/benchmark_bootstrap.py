@@ -246,7 +246,7 @@ print("Linear: ")
 df1s = []
 df2s = []
 for idx, el in enumerate(pointlist):
-    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_exp_np,sigma0,.4,lambda:-np.random.rand(2).astype(np.float32),testfunc_torch=data.testfunc_exp_torch,testfunc_tf=data.testfunc_exp)
+    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_lin_np,sigma0,.4,lambda:-np.random.rand(2).astype(np.float32))
     df1s.append(df1)
     df2s.append(df2)
 df1 = pd.concat(df1s)
@@ -259,6 +259,7 @@ df1["pull_1"] = df1["delta_1"] / df1["errors_1"]
 apply_test(test_mean,df1)
 apply_test(test_rms,df1)
 apply_test(test_pull,df1)
+print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
 
 df2.to_pickle("benchmark_linear_eachfit.pkl")
 df1.to_pickle("benchmark_linear_bootstrap.pkl")
@@ -281,14 +282,7 @@ apply_test(test_mean,df1)
 apply_test(test_rms,df1)
 apply_test(test_pull,df1)
 
+print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
+
 df2.to_pickle("benchmark_exponential_eachfit.pkl")
 df1.to_pickle("benchmark_exponential_bootstrap.pkl")
-
-
-
-apply_test(test_mean,df1)
-apply_test(test_rms,df1)
-apply_test(test_pull,df1)
-
-print(df2_lin.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
-print(df2_exp.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
