@@ -134,7 +134,7 @@ def benchmark_lin():
                 fit_idx.append(ifit + nfits*idx)
                 fitter_name.append("Pytorch_LBFGS_CUDA")
                 t0 = time.time()
-                df0,mean,median,std,_=fitter_torch.curve_fit_BS(torch.from_numpy(data_lin.x).cuda(), torch.from_numpy(data_lin.y).cuda(),data.testfunc_lin_torch,init_params=torch.from_numpy(p0).cuda(),weights=torch.from_numpy(weights).cuda(),sigma0=torch.tensor(sigma0,device="cuda:0"),nbootstrap=nbootstrap,device="cuda:0",fitter_name="Pytorch_LBFGS_CUDA")
+                df0,mean,median,std,_=fitter_torch.curve_fit_BS(data_lin.x, data_lin.y,data.testfunc_lin_np,init_params=p0,weights=weights,sigma0=sigma0,nbootstrap=nbootstrap,device="cuda:0",fitter_name="Pytorch_LBFGS_CUDA")
                 torch.cuda.synchronize()
                 t1 = time.time()
                 df0["fit_idx"] = ifit + nfits*idx
@@ -180,13 +180,13 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
     if weights is None:
         weights = bootstrap_weights(nbootstrap,npoints)
     x = np.linspace(xmin,xmax,npoints)
+    fitterTF = bfgsfitter(testfunc)
     for ifit in range(nfits):
         params = generate_params()
         y = np.random.normal(testfunc(x,*params),sigma_data)
         p0 = np.random.normal(data_lin.params,sigma_initial_guess,[nfits,2])
-        fitter = bfgsfitter(testfunc)
         t0 = time.time()
-        df0,mean,median,std,_ = fitter.curve_fit_BS(x, y,init_params=p0,weights=weights,sigma0=sigma0,nbootstrap=nbootstrap)
+        df0,mean,median,std,_ = fitterTF.curve_fit_BS(x, y,init_params=p0,weights=weights,sigma0=sigma0,nbootstrap=nbootstrap)
         t1 = time.time()
         frames.append(df0)
         df0["fit_idx"] = ifit
@@ -210,6 +210,21 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
             df0[str.format("params_true_{}",a)]=b
         frames.append(df0)
     df2 = pd.concat(frames)
+    bs_mean = np.stack(bs_mean)
+    bs_median = np.stack(bs_median)
+    bs_std = np.stack(bs_std)
+    params = np.stack(params)
+    errors = np.stack(errors)
+    params_true = list(zip(*params_true))
+    d = {"fitter_name":fitter_name,"fit_idx":fit_idx,"number_points":number_points,"time":t,"nbootstrap":nbootstrap}
+    d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
+    d.update({str.format("errors_{}",i):errors[:,i] for i in range(errors.shape[1])})
+    d.update({str.format("bs_mean_{}",i):bs_mean[:,i] for i in range(bs_mean.shape[1])})
+    d.update({str.format("bs_median_{}",i):bs_median[:,i] for i in range(bs_median.shape[1])})
+    d.update({str.format("bs_std_{}",i):bs_std[:,i] for i in range(bs_std.shape[1])})
+    d.update({str.format("params_true_{}",idx):el for idx,el in enumerate(params_true)})
+    
+    df1 = pd.DataFrame(d)
     return df1,df2    
 
 def bootstrap_weights(nfits,npoints):
@@ -218,7 +233,7 @@ def bootstrap_weights(nfits,npoints):
 def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed,niter):
     params = np.stack(params)
     covs = np.stack(covs)
-    d = {'optimizers':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed,'n_iter':niter}
+    d = {'fitter_name':optimizers,'number_points':npoints,'weights_idx':idx,'chisq':chisq,'chisq_transformed':chisq_transformed,'n_iter':niter}
     d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
     d.update({str.format("errors_{}",i):covs[:,i] for i in range(covs.shape[1])})
     df = pd.DataFrame(d)
@@ -253,32 +268,35 @@ def bootstrap_scipy(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,
     std = np.std(params,0)
     return df,mean,median,std,weights
 
-def test_mean(df,alarmsigma=3):
-    print("Fit type:\t\t\t\tnpoints\t\tmean\t\trms_estimate\t\tstatus")
+def apply_test(test,df,alarmsigma=3,to_markdown=True):
     g = df.groupby(["number_points","fitter_name"])
-    for idx,el in g:
-        N = len(el.index)
-        isOK = np.abs(el["delta_0"].mean())< alarmsigma* el["errors_0"].mean()/np.sqrt(N)
-        print("%s\t\t\t%8.0F\t%8.6F\t%8.6F\t%8.0F"%(idx[1],idx[0],el["delta_0"].mean(),el["errors_0"].mean()/np.sqrt(N),isOK))
-    print("")
+    r = g.apply(lambda x:test(x,alarmsigma))
+    if to_markdown:
+        print(r.to_markdown())
+    else:
+        print(r)
 
-def test_rms(df,alarmsigma=3):
-    print("Fit type:\t\tnpoints\t\tstd\t\tbootstrap_std\t\trms_estimate\t status")
-    g = df.groupby(["number_points","fitter_name"])
-    for idx,el in g:
-        N = len(el.index)
-        isOK=np.abs(el["delta_0"].std()-el["errors_0"].mean())<alarmsigma*el["errors_0"].mean()/np.sqrt(N)
-        print("%s\t\t%8.0F\t%8.6F\t%8.6F\t%8.6F\t%8.0F"%(idx[1],idx[0],el["delta_0"].std(),el["bs_std_0"].mean(),el["errors_0"].mean(),isOK))
-    print("")
+def test_mean(group,alarmsigma=3):
+    return pd.Series({
+            'mean_0':group['delta_0'].mean(),
+            'rmsexp_0':group['errors_0'].mean()/np.sqrt(len(group.index)),
+            'status_0':np.abs(group['delta_0'].mean()) < alarmsigma * group['errors_0'].mean()/np.sqrt(len(group.index))
+            })
+
+def test_rms(group,alarmsigma=3):
+    return pd.Series({
+            'std_0':group["delta_0"].std(),
+            'bootstrap_std_0':group["bs_std_0"].mean(),
+            'rms_estimate_0':group["errors_0"].mean(),
+            'status_0':np.abs(group["delta_0"].std()-group["errors_0"].mean())<alarmsigma*group["errors_0"].mean()/np.sqrt(len(group.index))
+            })
      
-def test_pull(df,alarmsigma=3):
-    print("Fit type:\t\t\tnpoints\tpull mean\tpull std\tstatus")
-    g = df.groupby(["number_points","fitter_name"])
-    for idx,el in g:
-        N = len(el.index)
-        isOK=np.abs(el["pull_0"].mean())<alarmsigma/np.sqrt(N) and np.abs(el["pull_0"].std()-1)<alarmsigma/np.sqrt(N)
-        print("%s\t\t%8.0f\t%8.6F\t%8.6F\t%2.0F" % (idx[1],idx[0],el["pull_0"].mean(),el["pull_0"].std(),isOK))
-    print("")
+def test_pull(group,alarmsigma=3):
+    return pd.Series({
+            'pull_mean_0':group["pull_0"].mean(),
+            'pull_std_0':group["pull_0"].std(),
+            'status_0':np.abs(group["pull_0"].mean())<alarmsigma/np.sqrt(len(group.index)) and np.abs(group["pull_0"].std()-1)<alarmsigma/np.sqrt(len(group.index))
+            })
     
 df2,df1 = benchmark_lin()
 
@@ -295,9 +313,8 @@ df1_scipy= df1.query("fitter_name=='Scipy_LM'")
 df1_torch= df1.query("fitter_name=='Pytorch_LBFGS'")
 N = len(df1_tf.index)
 
-test_mean(df1)
-test_rms(df1)
-test_pull(df1)
+apply_test(test_mean,df1)
+apply_test(test_rms,df1)
+apply_test(test_pull,df1)
 
-df1.groupby(["fitter_name","number_points"]).mean()
-df2.groupby(["optimizers","number_points"]).mean()["n_iter"]
+print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
