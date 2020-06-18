@@ -100,14 +100,19 @@ def curve_fit(fitfunc,x,y,params, weights = 1, sigma = None, lossfunc = None, ab
         hessian = torch.autograd.functional.hessian(lambda *a:lossfunc(y,fitfunc(x,*a),weights,invsigma),tuple(params))
         hessian = torch.stack([torch.stack([hessian[j][i] for i in range(len(params))]) for j in range(len(params))],1)
 
-    pcov = 2*hessian.detach().pinverse()
+    try:
+        pcov = 2*hessian.detach().pinverse()
+    except(RuntimeError):
+        pcov = None
+    
+    if pcov is None:
+        pcov = torch.full([nparams,nparams],np.nan)
     if not absolute_sigma:
         if y.size(0) > nparams:
             chisq = loss / (y.size(0) - nparams)
             pcov = pcov * chisq
         else:
-            pcov.fill(np.inf)
-            
+            pcov *= np.inf
     if verbose:
         return params,pcov,optimizer.state
     return params,pcov

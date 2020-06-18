@@ -21,8 +21,8 @@ np.random.seed(72654126)
 
 npoints = 10000
 pointlist = [1000, 10000,100000]
-nfits = 30
-nbootstrap = 30
+nfits = 15
+nbootstrap = 15
 
 sigma0=.1
 sigma_initial_guess=[.2,.1]
@@ -34,12 +34,14 @@ data_exp.setfuncexp()
 data_lin = data.testdata()
 data_lin.setfunclin()
 
+fitters={"Tensorflow_BFGS","Scipy_LM","Pytorch_LBFGS","Pytorch_LBFGS_CUDA"}
+
 def cuda_curve_fit_sync(*args, **kwargs):
     x = fitter_torch.curve_fit(*args, **kwargs)
     torch.cuda.synchronize()
     return x
 
-def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initial_guess,generate_params,xmin=-1,xmax=1,weights=None,testfunc_tf=None,testfunc_torch=None):
+def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initial_guess,generate_params,nparams,xmin=-1,xmax=1,weights=None,testfunc_tf=None,testfunc_torch=None):
     frames = []
     params = []
     errors = []
@@ -63,73 +65,80 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
         print("Fit ",ifit)
         params_true_0 = generate_params()
         y = np.random.normal(testfunc(x,*params_true_0),sigma_data).astype(np.float32)
-        p0 = np.random.normal(params_true_0,sigma_initial_guess,[nfits,2]).astype(np.float32)
+        p0 = np.random.normal(params_true_0,sigma_initial_guess,[nfits,nparams]).astype(np.float32)
 
-        p,q = fitterTF.curve_fit(x,y,initial_parameters=p0[0],weights=1/sigma_data**2)
-        #print(p.numpy()); print(q.numpy())
-        params.append(p.numpy())
-        errors.append(np.sqrt(np.diag(q.numpy())))
-        params_true.append(params_true_0)
-        number_points.append(npoints)
-        fit_idx.append(ifit)
-        fitter_name.append("Tensorflow_BFGS")
-        t0 = time.time()
-        df0,mean,median,std,_ = fitterTF.curve_fit_BS(x, y,weights=weights,init_params=p0,sigma0=sigma_data,nbootstrap=nbootstrap)
-        t1 = time.time()
-        frames.append(df0)
-        df0["fit_idx"] = ifit
-        df0["time"] = (t1-t0)/nbootstrap
-        t.append(t1-t0)
-        for a,b in enumerate(params_true_0):
-            df0[str.format("params_true_{}",a)]=b
-        bs_mean.append(mean)
-        bs_median.append(median)
-        bs_std.append(std)
+        if "Tensorflow_BFGS" in fitters:
+            p,q = fitterTF.curve_fit(x,y,initial_parameters=p0[0],weights=1/sigma_data**2)
+            #print(p.numpy()); print(q.numpy())
+            params.append(p.numpy())
+            errors.append(np.sqrt(np.diag(q.numpy())))
+            params_true.append(params_true_0)
+            number_points.append(npoints)
+            fit_idx.append(ifit)
+            fitter_name.append("Tensorflow_BFGS")
+            t0 = time.time()
+            df0,mean,median,std,_ = fitterTF.curve_fit_BS(x, y,weights=weights,init_params=p0,sigma0=sigma_data,nbootstrap=nbootstrap)
+            t1 = time.time()
+            frames.append(df0)
+            df0["fit_idx"] = ifit
+            df0["time"] = (t1-t0)/nbootstrap
+            t.append(t1-t0)
+            for a,b in enumerate(params_true_0):
+                df0[str.format("params_true_{}",a)]=b
+            bs_mean.append(mean)
+            bs_median.append(median)
+            bs_std.append(std)
 
-        p, q = scipy.optimize.curve_fit(testfunc, x, y,sigma=sigma_data*np.ones_like(y),p0=p0[0])
-        #print(p); print(q)
-        params.append(p)
-        errors.append(np.sqrt(np.diag(q)))
-        params_true.append(params_true_0)
-        number_points.append(npoints)
-        fit_idx.append(ifit)
-        fitter_name.append("Scipy_LM")
-        t0 = time.time()
-        df0,mean,median,std,_=bootstrap_scipy(x, y,testfunc,init_params=p0,weights=weights,sigma0=sigma_data,nbootstrap=nbootstrap)
-        t1 = time.time()
-        df0["fit_idx"] = ifit
-        df0["time"] = (t1-t0)/nbootstrap
-        t.append(t1-t0)
-        for a,b in enumerate(params_true_0):
-            df0[str.format("params_true_{}",a)]=b
-        frames.append(df0)
-        bs_mean.append(mean)
-        bs_median.append(median)
-        bs_std.append(std)
+        if "Scipy_LM" in fitters:
+            try:
+                p, q = scipy.optimize.curve_fit(testfunc, x, y,sigma=sigma_data*np.ones_like(y),p0=p0[0])
+            except(RuntimeError):
+                p = np.full(nparams,np.nan)
+                q = np.full([nparams,nparams],np.nan)
+            #print(p); print(q)
+            params.append(p)
+            errors.append(np.sqrt(np.diag(q)))
+            params_true.append(params_true_0)
+            number_points.append(npoints)
+            fit_idx.append(ifit)
+            fitter_name.append("Scipy_LM")
+            t0 = time.time()
+            df0,mean,median,std,_=bootstrap_scipy(x, y,testfunc,init_params=p0,weights=weights,sigma0=sigma_data,nbootstrap=nbootstrap)
+            t1 = time.time()
+            df0["fit_idx"] = ifit
+            df0["time"] = (t1-t0)/nbootstrap
+            t.append(t1-t0)
+            for a,b in enumerate(params_true_0):
+                df0[str.format("params_true_{}",a)]=b
+            frames.append(df0)
+            bs_mean.append(mean)
+            bs_median.append(median)
+            bs_std.append(std)
 
-        p,q = fitter_torch.curve_fit(testfunc_torch,torch.from_numpy(x),torch.from_numpy(y),[torch.tensor(i,requires_grad=True) for i in p0[0]],sigma=sigma_data)
-        #print(p[0].detach().numpy()); print(q.numpy())
-        params.append(np.hstack([j.detach().numpy() for j in p]))
-        errors.append(np.sqrt(np.diag(q.numpy())))
-        params_true.append(params_true_0)
-        number_points.append(npoints)
-        fit_idx.append(ifit)
-        fitter_name.append("Pytorch_LBFGS")
-        t0 = time.time()
-        df0,mean,median,std,_=fitter_torch.curve_fit_BS(x, y,testfunc_torch,init_params=p0,weights=weights,sigma0=sigma_data,nbootstrap=nbootstrap)
-        t1 = time.time()
-        df0["fit_idx"] = ifit
-        df0["time"] = (t1-t0)/nbootstrap
-        t.append(t1-t0)
-        for a,b in enumerate(params_true_0):
-            df0[str.format("params_true_{}",a)]=b
-        frames.append(df0)
-        bs_mean.append(mean)
-        bs_median.append(median)
-        bs_std.append(std)
+        if "Pytorch_LBFGS" in fitters:
+            p,q = fitter_torch.curve_fit(testfunc_torch,torch.from_numpy(x),torch.from_numpy(y),[torch.tensor(i,requires_grad=True) for i in p0[0]],sigma=sigma_data)
+            #print(p[0].detach().numpy()); print(q.numpy())
+            params.append(np.hstack([j.detach().numpy() for j in p]))
+            errors.append(np.sqrt(np.diag(q.numpy())))
+            params_true.append(params_true_0)
+            number_points.append(npoints)
+            fit_idx.append(ifit)
+            fitter_name.append("Pytorch_LBFGS")
+            t0 = time.time()
+            df0,mean,median,std,_=fitter_torch.curve_fit_BS(x, y,testfunc_torch,init_params=p0,weights=weights,sigma0=sigma_data,nbootstrap=nbootstrap)
+            t1 = time.time()
+            df0["fit_idx"] = ifit
+            df0["time"] = (t1-t0)/nbootstrap
+            t.append(t1-t0)
+            for a,b in enumerate(params_true_0):
+                df0[str.format("params_true_{}",a)]=b
+            frames.append(df0)
+            bs_mean.append(mean)
+            bs_median.append(median)
+            bs_std.append(std)
 
 
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and "Pytorch_LBFGS_CUDA" in fitters:
             p,q = fitter_torch.curve_fit(testfunc_torch,torch.from_numpy(x).cuda(),torch.from_numpy(y).cuda(),[torch.tensor(i,requires_grad=True,device="cuda:0") for i in p0[0]],sigma=sigma_data)
             #print(p[0].detach().numpy()); print(q.numpy())
             params.append(np.hstack([j.detach().cpu().numpy() for j in p]))
@@ -197,7 +206,17 @@ def bootstrap_scipy(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,
         weights = bootstrap_weights(nbootstrap,n)
 
     for i in range(nbootstrap):
-        p, q, infodict, errmsg, ier = scipy.optimize.curve_fit(fitfunc,x,y,sigma=sigma0/np.sqrt(weights[i]),p0=init_params[i],**fitter_options, full_output=True)
+        try:
+            p, q, infodict, errmsg, ier = scipy.optimize.curve_fit(fitfunc,x,y,sigma=sigma0/np.sqrt(weights[i]),p0=init_params[i],**fitter_options, full_output=True)
+        except(RuntimeError):
+            p = np.zeros_like(init_params[i])+np.nan
+            fitted_params.append(p)
+            errors.append(p)
+            weights_idx.append(i)
+            chisq.append(np.nan)
+            chisq_transformed.append(np.nan)
+            niter.append(np.nan)
+            continue
         fitted_params.append(p)
         errors.append(np.sqrt(np.diag(q)))
         weights_idx.append(i)
@@ -207,9 +226,9 @@ def bootstrap_scipy(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,
 
     df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed,niter)
     params = np.stack(fitted_params)
-    mean = np.mean(params,0)
-    median = np.median(params,0)
-    std = np.std(params,0)
+    mean = np.nanmean(params,0)
+    median = np.nanmedian(params,0)
+    std = np.nanstd(params,0)
     return df,mean,median,std,weights
 
 def apply_test(test,df,alarmsigma=3,to_markdown=True):
@@ -223,16 +242,16 @@ def apply_test(test,df,alarmsigma=3,to_markdown=True):
 def test_mean(group,alarmsigma=3):
     return pd.Series({
             'mean_0':group['delta_0'].mean(),
-            'rmsexp_0':group['errors_0'].mean()/np.sqrt(len(group.index)),
-            'status_0':np.abs(group['delta_0'].mean()) < alarmsigma * group['errors_0'].mean()/np.sqrt(len(group.index))
+            'rmsexp_0':np.sqrt((group["errors_0"]**2).mean())/np.sqrt(len(group.index)),
+            'status_0':np.abs(group['delta_0'].mean()) < alarmsigma * np.sqrt((group["errors_0"]**2).mean())/np.sqrt(len(group.index))
             })
 
 def test_rms(group,alarmsigma=3):
     return pd.Series({
             'std_0':group["delta_0"].std(),
             'bootstrap_std_0':group["bs_std_0"].mean(),
-            'rms_estimate_0':group["errors_0"].mean(),
-            'status_0':np.abs(group["delta_0"].std()-group["errors_0"].mean())<alarmsigma*group["errors_0"].mean()/np.sqrt(len(group.index))
+            'rms_estimate_0':np.sqrt((group["errors_0"]**2).mean()),
+            'status_0':np.abs(group["delta_0"].std()-np.sqrt((group["errors_0"]**2).mean()))<alarmsigma*np.sqrt((group["errors_0"]**2).mean())/np.sqrt(len(group.index))
             })
 
 def test_pull(group,alarmsigma=3):
@@ -246,7 +265,7 @@ print("Linear: ")
 df1s = []
 df2s = []
 for idx, el in enumerate(pointlist):
-    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_lin_np,sigma0,.4,lambda:-np.random.rand(2).astype(np.float32))
+    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_lin_np,sigma0,.4,lambda:-np.random.rand(2).astype(np.float32),2)
     df1s.append(df1)
     df2s.append(df2)
 df1 = pd.concat(df1s)
@@ -268,7 +287,7 @@ print("Exponential: ")
 df1s = []
 df2s = []
 for idx, el in enumerate(pointlist):
-    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_exp_np,sigma0,.4,lambda:-np.random.rand(2).astype(np.float32),testfunc_torch=data.testfunc_exp_torch,testfunc_tf=data.testfunc_exp)
+    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_exp_np,sigma0,.4,lambda:-np.random.rand(2).astype(np.float32),2,testfunc_torch=data.testfunc_exp_torch,testfunc_tf=data.testfunc_exp)
     df1s.append(df1)
     df2s.append(df2)
 df1 = pd.concat(df1s)
@@ -286,3 +305,26 @@ print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_
 
 df2.to_pickle("benchmark_exponential_eachfit.pkl")
 df1.to_pickle("benchmark_exponential_bootstrap.pkl")
+
+print("Gaussian: ")
+df1s = []
+df2s = []
+for idx, el in enumerate(pointlist):
+    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_gaus_np,sigma0,.4,lambda:np.array([np.random.rand()+.5,2*np.random.rand()-1,np.random.rand()*3]).astype(np.float32),3,testfunc_torch=data.testfunc_gaus_torch,testfunc_tf=data.testfunc_gaus_tf)
+    df1s.append(df1)
+    df2s.append(df2)
+df1 = pd.concat(df1s)
+df2 = pd.concat(df2s)
+print("Gaussian: ")
+df1["delta_0"] = df1["params_true_0"] - df1["params_0"]
+df1["delta_1"] = df1["params_true_1"] - df1["params_1"]
+df1["pull_0"] = df1["delta_0"] / df1["errors_0"]
+df1["pull_1"] = df1["delta_1"] / df1["errors_1"]
+apply_test(test_mean,df1)
+apply_test(test_rms,df1)
+apply_test(test_pull,df1)
+
+print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
+
+df2.to_pickle("benchmark_gaussian_eachfit.pkl")
+df1.to_pickle("benchmark_gaussian_bootstrap.pkl")
