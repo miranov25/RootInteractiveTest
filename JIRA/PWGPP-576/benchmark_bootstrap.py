@@ -35,8 +35,8 @@ data_exp.setfuncexp()
 data_lin = data.testdata()
 data_lin.setfunclin()
 
-#fitters={"Tensorflow_BFGS","Scipy_LM","Pytorch_LBFGS","Pytorch_LBFGS_CUDA","iminuit"}
-fitters={"Scipy_LM","iminuit"}
+fitters={"Tensorflow_BFGS","Scipy_LM","Pytorch_LBFGS","Pytorch_LBFGS_CUDA","iminuit"}
+#fitters={"Scipy_LM","Pytorch_LBFGS","iminuit"}
 
 def cuda_curve_fit_sync(*args, **kwargs):
     x = fitter_torch.curve_fit(*args, **kwargs)
@@ -164,10 +164,14 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
             bs_std.append(std)
             
         if "iminuit" in fitters:
-            p,q = fitter_minuit.curve_fit(testfunc, x, y,weights=1/sigma_data**2,p0=p0[0])
+            p,q,status = fitter_minuit.curve_fit(testfunc, x, y,weights=1/sigma_data**2,p0=p0[0],full_output=True)
             #print(p[0].detach().numpy()); print(q.numpy())
-            params.append(p)
-            errors.append(np.sqrt(np.diag(q)))
+            if status.is_valid:
+                params.append(p)
+                errors.append(np.sqrt(np.diag(q)))
+            else:
+                params.append(np.full(nparams,np.nan))
+                errors.append(np.full(nparams,np.nan))
             params_true.append(params_true_0)
             number_points.append(npoints)
             fit_idx.append(ifit)
@@ -334,7 +338,7 @@ print("Gaussian: ")
 df1s = []
 df2s = []
 for idx, el in enumerate(pointlist):
-    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_gaus_np,sigma0,.4,lambda:np.array([np.random.rand()+.5,2*np.random.rand()-1,np.random.rand()*3]).astype(np.float32),3,testfunc_torch=data.testfunc_gaus_torch,testfunc_tf=data.testfunc_gaus_tf)
+    df1,df2 = benchmark_bootstrap(el,nfits,nbootstrap,data.testfunc_gaus_np,sigma0,.4,lambda:np.array([np.random.rand()+.5,2*np.random.rand()-1,np.random.rand()*3]).astype(np.float32),3,testfunc_torch=data.testfunc_gaus_torch,testfunc_tf=data.testfunc_gaus_tf,xmin=-1,xmax=1)
     df1s.append(df1)
     df2s.append(df2)
 df1 = pd.concat(df1s)
@@ -342,8 +346,10 @@ df2 = pd.concat(df2s)
 print("Gaussian: ")
 df1["delta_0"] = df1["params_true_0"] - df1["params_0"]
 df1["delta_1"] = df1["params_true_1"] - df1["params_1"]
+df1["delta_2"] = df1["params_true_2"] - df1["params_2"]
 df1["pull_0"] = df1["delta_0"] / df1["errors_0"]
 df1["pull_1"] = df1["delta_1"] / df1["errors_1"]
+df1["pull_2"] = df1["delta_2"] / df1["errors_2"]
 apply_test(test_mean,df1)
 apply_test(test_rms,df1)
 apply_test(test_pull,df1)
