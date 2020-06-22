@@ -16,11 +16,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import torch
 import fitter_torch
+import fitter_minuit
 
 np.random.seed(72654126)
 
 npoints = 10000
-pointlist = [1000, 10000,100000]
+pointlist = [1000,10000,100000]
 nfits = 15
 nbootstrap = 15
 
@@ -34,7 +35,8 @@ data_exp.setfuncexp()
 data_lin = data.testdata()
 data_lin.setfunclin()
 
-fitters={"Tensorflow_BFGS","Scipy_LM","Pytorch_LBFGS","Pytorch_LBFGS_CUDA"}
+#fitters={"Tensorflow_BFGS","Scipy_LM","Pytorch_LBFGS","Pytorch_LBFGS_CUDA","iminuit"}
+fitters={"Scipy_LM","iminuit"}
 
 def cuda_curve_fit_sync(*args, **kwargs):
     x = fitter_torch.curve_fit(*args, **kwargs)
@@ -65,7 +67,7 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
         print("Fit ",ifit)
         params_true_0 = generate_params()
         y = np.random.normal(testfunc(x,*params_true_0),sigma_data).astype(np.float32)
-        p0 = np.random.normal(params_true_0,sigma_initial_guess,[nfits,nparams]).astype(np.float32)
+        p0 = np.random.normal(params_true_0,sigma_initial_guess,[nbootstrap,nparams]).astype(np.float32)
 
         if "Tensorflow_BFGS" in fitters:
             p,q = fitterTF.curve_fit(x,y,initial_parameters=p0[0],weights=1/sigma_data**2)
@@ -160,6 +162,28 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
             bs_mean.append(mean)
             bs_median.append(median)
             bs_std.append(std)
+            
+        if "iminuit" in fitters:
+            p,q = fitter_minuit.curve_fit(testfunc, x, y,weights=1/sigma_data**2,p0=p0[0])
+            #print(p[0].detach().numpy()); print(q.numpy())
+            params.append(p)
+            errors.append(np.sqrt(np.diag(q)))
+            params_true.append(params_true_0)
+            number_points.append(npoints)
+            fit_idx.append(ifit)
+            fitter_name.append("Minuit")
+            t0 = time.time()
+            df0,mean,median,std,_=fitter_minuit.curve_fit_BS(x, y,testfunc,init_params=p0,weights=weights,sigma0=sigma_data,nbootstrap=nbootstrap)
+            t1 = time.time()
+            df0["fit_idx"] = ifit
+            df0["time"] = (t1-t0)/nbootstrap
+            t.append(t1-t0)
+            for a,b in enumerate(params_true_0):
+                df0[str.format("params_true_{}",a)]=b
+            frames.append(df0)
+            bs_mean.append(mean)
+            bs_median.append(median)
+            bs_std.append(std)        
 
     bs_mean = np.stack(bs_mean)
     bs_median = np.stack(bs_median)
