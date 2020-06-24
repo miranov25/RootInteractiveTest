@@ -53,8 +53,10 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
     bs_mean = []
     bs_median = []
     bs_std = []
+    chisq = []
     number_points = []
     t = []
+    
     if weights is None:
         weights = bootstrap_weights(nbootstrap,npoints)
     if testfunc_tf is None:
@@ -72,8 +74,10 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
         if "Tensorflow_BFGS" in fitters:
             p,q = fitterTF.curve_fit(x,y,initial_parameters=p0[0],weights=1/sigma_data**2)
             #print(p.numpy()); print(q.numpy())
-            params.append(p.numpy())
+            pn = p.numpy()
+            params.append(pn)
             errors.append(np.sqrt(np.diag(q.numpy())))
+            chisq.append(np.sum((testfunc(x,*pn)-y)**2)/sigma_data**2/(npoints-nparams))
             params_true.append(params_true_0)
             number_points.append(npoints)
             fit_idx.append(ifit)
@@ -100,6 +104,7 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
             #print(p); print(q)
             params.append(p)
             errors.append(np.sqrt(np.diag(q)))
+            chisq.append(np.sum((testfunc(x,*p)-y)**2)/sigma_data**2/(npoints-nparams))
             params_true.append(params_true_0)
             number_points.append(npoints)
             fit_idx.append(ifit)
@@ -120,8 +125,10 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
         if "Pytorch_LBFGS" in fitters:
             p,q = fitter_torch.curve_fit(testfunc_torch,torch.from_numpy(x),torch.from_numpy(y),[torch.tensor(i,requires_grad=True) for i in p0[0]],sigma=sigma_data)
             #print(p[0].detach().numpy()); print(q.numpy())
-            params.append(np.hstack([j.detach().numpy() for j in p]))
-            errors.append(np.sqrt(np.diag(q.numpy())))
+            pn = np.hstack([j.detach().cpu().numpy() for j in p])
+            params.append(pn)
+            errors.append(np.sqrt(np.diag(q.cpu().numpy())))
+            chisq.append(np.sum((testfunc(x,*pn)-y)**2)/sigma_data**2/(npoints-nparams))
             params_true.append(params_true_0)
             number_points.append(npoints)
             fit_idx.append(ifit)
@@ -143,8 +150,10 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
         if torch.cuda.is_available() and "Pytorch_LBFGS_CUDA" in fitters:
             p,q = fitter_torch.curve_fit(testfunc_torch,torch.from_numpy(x).cuda(),torch.from_numpy(y).cuda(),[torch.tensor(i,requires_grad=True,device="cuda:0") for i in p0[0]],sigma=sigma_data)
             #print(p[0].detach().numpy()); print(q.numpy())
-            params.append(np.hstack([j.detach().cpu().numpy() for j in p]))
+            pn = np.hstack([j.detach().cpu().numpy() for j in p])
+            params.append(pn)
             errors.append(np.sqrt(np.diag(q.cpu().numpy())))
+            chisq.append(np.sum((testfunc(x,*pn)-y)**2)/sigma_data**2/(npoints-nparams))
             params_true.append(params_true_0)
             number_points.append(npoints)
             fit_idx.append(ifit)
@@ -169,9 +178,11 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
             if status.is_valid:
                 params.append(p)
                 errors.append(np.sqrt(np.diag(q)))
+                chisq.append(status.fval/(npoints-nparams))
             else:
                 params.append(np.full(nparams,np.nan))
                 errors.append(np.full(nparams,np.nan))
+                chisq.append(np.nan)
             params_true.append(params_true_0)
             number_points.append(npoints)
             fit_idx.append(ifit)
@@ -195,7 +206,7 @@ def benchmark_bootstrap(npoints,nfits,nbootstrap,testfunc,sigma_data,sigma_initi
     params = np.stack(params)
     errors = np.stack(errors)
     params_true = list(zip(*params_true))
-    d = {"fitter_name":fitter_name,"fit_idx":fit_idx,"number_points":number_points,"time":t,"nbootstrap":nbootstrap}
+    d = {"fitter_name":fitter_name,"fit_idx":fit_idx,"number_points":number_points,"time":t,"chisq":chisq,"nbootstrap":nbootstrap}
     d.update({str.format("params_{}",i):params[:,i] for i in range(params.shape[1])})
     d.update({str.format("errors_{}",i):errors[:,i] for i in range(errors.shape[1])})
     d.update({str.format("bs_mean_{}",i):bs_mean[:,i] for i in range(bs_mean.shape[1])})
@@ -229,6 +240,7 @@ def bootstrap_scipy(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,
     niter=[]
 
     n = y.shape[0]
+    nparams = init_params.shape[0]
 
     if weights is None:
         weights = bootstrap_weights(nbootstrap,n)
@@ -248,8 +260,8 @@ def bootstrap_scipy(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,
         fitted_params.append(p)
         errors.append(np.sqrt(np.diag(q)))
         weights_idx.append(i)
-        chisq.append(np.sum(((fitfunc(x,*p)-y)/sigma0)**2))
-        chisq_transformed.append(np.sum(weights[i]*((fitfunc(x,*p)-y)/sigma0)**2))
+        chisq.append(np.sum(((fitfunc(x,*p)-y)/sigma0)**2)/(n-nparams))
+        chisq_transformed.append(np.sum(weights[i]*((fitfunc(x,*p)-y)/sigma0)**2)/(n-nparams))
         niter.append(infodict['nfev'])
 
     df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed,niter)
@@ -289,6 +301,13 @@ def test_pull(group,alarmsigma=3):
             'status_0':np.abs(group["pull_0"].mean())<alarmsigma/np.sqrt(len(group.index)) and np.abs(group["pull_0"].std()-1)<alarmsigma/np.sqrt(len(group.index))
             })
 
+def test_chisq(group,alarmsigma=3):
+    return pd.Series({
+            'chisq_mean':group["chisq"].mean(),
+            'chisq_std': group["chisq"].std(),
+            'status':np.abs(group["chisq"].mean()-1)<alarmsigma/np.sqrt(len(group.index))
+            })    
+    
 print("Linear: ")
 df1s = []
 df2s = []
@@ -306,6 +325,7 @@ df1["pull_1"] = df1["delta_1"] / df1["errors_1"]
 apply_test(test_mean,df1)
 apply_test(test_rms,df1)
 apply_test(test_pull,df1)
+apply_test(test_chisq,df1)
 print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
 
 df2.to_pickle("benchmark_linear_eachfit.pkl")
@@ -328,6 +348,7 @@ df1["pull_1"] = df1["delta_1"] / df1["errors_1"]
 apply_test(test_mean,df1)
 apply_test(test_rms,df1)
 apply_test(test_pull,df1)
+apply_test(test_chisq,df1)
 
 print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
 
@@ -353,6 +374,7 @@ df1["pull_2"] = df1["delta_2"] / df1["errors_2"]
 apply_test(test_mean,df1)
 apply_test(test_rms,df1)
 apply_test(test_pull,df1)
+apply_test(test_chisq,df1)
 
 print(df2.groupby(["fitter_name","number_points"]).mean()[["time","n_iter"]].to_markdown())
 
