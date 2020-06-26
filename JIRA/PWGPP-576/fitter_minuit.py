@@ -53,8 +53,8 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
         if status.is_valid:
             fitted_params.append(p)
             errors.append(np.sqrt(np.diag(q)))
-            chisq.append(np.sum(((fitfunc(x,*p)-y)/sigma0)**2))
-            chisq_transformed.append(status.fval)
+            chisq.append(np.sum(((fitfunc(x,*p)-y)/sigma0)**2)/(n-nparams))
+            chisq_transformed.append(status.fval/(n-nparams))
         else:
             fitted_params.append(p+np.nan)
             errors.append(np.sqrt(np.diag(q))+np.nan)
