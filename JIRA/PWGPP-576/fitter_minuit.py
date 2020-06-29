@@ -33,7 +33,7 @@ def curve_fit(fitfunc,x,y,p0, weights = 1, lossfunc = mse, absolute_sigma=False,
     return m.np_values(),cov
 
 
-def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fitter_options={},fitter_name='Minuit'):
+def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,bootstrap_options={},fitter_options={},fitter_name='Minuit'):
     chisq = []
     chisq_transformed=[]
     weights_idx=[]
@@ -66,9 +66,16 @@ def curve_fit_BS(x,y,fitfunc,init_params,sigma0=1,weights=None,nbootstrap=50,fit
 
     df = create_benchmark_df(fitter_name,fitted_params,errors,n,weights_idx,chisq,chisq_transformed,valid_min,niter)
     params = np.stack(fitted_params)
-    mean = np.nanmean(params,0)
-    median = np.nanmedian(params,0)
-    std = np.nanstd(params,0)
+    if 'chisq_cut' in bootstrap_options:
+        chisq_median = np.median(chisq)
+        masked_params = params[np.all([chisq<chisq_median*bootstrap_options["chisq_cut"],np.array(valid_min)],0)]
+        mean = np.mean(masked_params,0)
+        median = np.median(masked_params,0)
+        std = np.std(masked_params,0)        
+    else:
+        mean = np.nanmean(params,0)
+        median = np.nanmedian(params,0)
+        std = np.nanstd(params,0)
     return df,mean,median,std,weights    
 
 def create_benchmark_df(optimizers,params,covs,npoints,idx,chisq,chisq_transformed,is_valid,niter):
