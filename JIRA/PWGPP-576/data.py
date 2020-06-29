@@ -38,13 +38,13 @@ def testfunc_exp_torch(x,a,b):
     return torch.exp(a*x)*b
 
 def testfunc_gaus_np(x,a,b,c):
-    return np.exp(-a*((x-b)**2))*c
+    return np.exp(-.5*((x-b)**2)/a)*c
 
 def testfunc_gaus_tf(x,a,b,c):
-    return tf.exp(-a*((x-b)**2))*c
+    return tf.exp(-.5*((x-b)**2)/a)*c
 
 def testfunc_gaus_torch(x,a,b,c):
-    return torch.exp(-a*((x-b)**2))*c
+    return torch.exp(-.5*torch.square(x-b)/a)*c
 
 def return_array(array_size, n, func):
     data_array = []
