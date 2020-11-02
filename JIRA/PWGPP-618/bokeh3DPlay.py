@@ -1,5 +1,5 @@
 import numpy as np
-from bokeh.core.properties import Instance, String
+from bokeh.core.properties import Instance, String, Int
 from bokeh.io import show
 from bokeh.models import ColumnDataSource, LayoutDOM
 from bokeh.util.compiler import TypeScript
@@ -94,7 +94,7 @@ export class Surface3dView extends LayoutDOMView {
         x: source.data[this.model.x][i],
         y: source.data[this.model.y][i],
         z: source.data[this.model.z][i],
-        style: source.data[this.model.x][i],
+        style: source.data[this.model.colorValue][i],
       })
     }
     return data
@@ -121,6 +121,7 @@ export namespace Surface3d {
     x: p.Property<string>
     y: p.Property<string>
     z: p.Property<string>
+    colorValue: p.Property<string>
     data_source: p.Property<ColumnDataSource>
   }
 }
@@ -155,6 +156,7 @@ export class Surface3d extends LayoutDOM {
       x:            [ p.String   ],
       y:            [ p.String   ],
       z:            [ p.String   ],
+      colorValue:   [ p.String   ],
       data_source:  [ p.Instance ],
     })
   }
@@ -188,12 +190,10 @@ class Surface3d(LayoutDOM):
     # properties let us specify the *name* of the column that should be
     # used for each field.
     x = String
-
     y = String
-
     z = String
-
-    color=String
+    colorValue=String
+#    width=String(default=10)
 
 
 x = np.arange(0, 300, 10)
@@ -202,11 +202,12 @@ xx, yy = np.meshgrid(x, y)
 xx = xx.ravel()
 yy = yy.ravel()
 value = np.sin(xx / 50) * np.cos(yy / 50) * 50 + 50
-color = np.sin(xx / 50)
+colorValue = np.cos(xx / 50)
+colorValue = xx
 
-source = ColumnDataSource(data=dict(x=xx, y=yy, z=value, color=color))
+source = ColumnDataSource(data=dict(x=xx, y=yy, z=value, colorValue=colorValue))
 
-surface = Surface3d(x="x", y="y", z="z", data_source=source, width=600, height=600)
-#surface = Surface3d(x="x", y="y", z="z", color = "color", data_source=source, width=600, height=600)
+#surface = Surface3d(x="x", y="y", z="z", data_source=source, width=600, height=600)
+surface = Surface3d(x="x", y="y", z="z", colorValue="colorValue", data_source=source, width=300, height=300)
 
 show(surface)
