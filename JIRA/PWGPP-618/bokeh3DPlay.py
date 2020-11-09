@@ -1,5 +1,5 @@
 import numpy as np
-from bokeh.core.properties import Instance, String, Int
+from bokeh.core.properties import Instance, String, Int, Dict, Any
 from bokeh.io import show
 from bokeh.models import ColumnDataSource, LayoutDOM
 from bokeh.util.compiler import TypeScript
@@ -81,7 +81,9 @@ export class Surface3dView extends LayoutDOMView {
     // event, we can process the new data
     this.connect(this.model.data_source.change, () => {
       this._graph.setData(this.get_data())
+      // this._graph.setOptions()
     })
+    
   }
 
   // This is the callback executed when the Bokeh data has an change. Its basic
@@ -124,6 +126,7 @@ export namespace Surface3d {
     myWidth: p.Property<string>
     legendLabel: p.Property<string>
     colorValue: p.Property<string>
+    //options3D:  p.Property<Map>
     data_source: p.Property<ColumnDataSource>
   }
 }
@@ -161,6 +164,7 @@ export class Surface3d extends LayoutDOM {
       colorValue:   [ p.String   ],
       myWidth:      [ p.String   ],
       legendLabel:  [ p.String   ],
+      // options3D:    [ p.Map ],     
       data_source:  [ p.Instance ],
     })
   }
@@ -200,6 +204,7 @@ class Surface3d(LayoutDOM):
     myWidth=String(default="100px")
     legendLabel=String(default="XXX")
     xxx=Int
+    options3D=Dict( String, Any, default={ "width":300, "height":300, "legendLabel":"XXX"})
     print("x",__implementation__)
 #    width=String(default=10)
 
@@ -213,9 +218,10 @@ value = np.sin(xx / 50) * np.cos(yy / 50) * 50 + 50
 colorValue = np.cos(xx / 50)
 colorValue = xx
 
+
 source = ColumnDataSource(data=dict(x=xx, y=yy, z=value, colorValue=colorValue))
 
 #surface = Surface3d(x="x", y="y", z="z", data_source=source, width=600, height=600)
-surface = Surface3d(x="x", y="y", z="z", colorValue="colorValue", myWidth="100px", data_source=source, width=300, height=300)
+surface = Surface3d(x="x", y="y", z="z", colorValue="colorValue", myWidth="100px", data_source=source, width=300, height=300,legendLabel="XXX")
 
 show(surface)
