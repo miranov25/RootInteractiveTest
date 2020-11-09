@@ -31,8 +31,8 @@ declare namespace vis {
 // This defines some default options for the Graph3d feature of vis.js
 // See: http://visjs.org/graph3d_examples.html for more details.
 const OPTIONS = {
-  width: '600px',
-  height: '600px',
+  width: '400px',
+  height: '400px',
   // style: 'surface',
   style: 'dot-color',
   showPerspective: true,
@@ -121,6 +121,8 @@ export namespace Surface3d {
     x: p.Property<string>
     y: p.Property<string>
     z: p.Property<string>
+    myWidth: p.Property<string>
+    legendLabel: p.Property<string>
     colorValue: p.Property<string>
     data_source: p.Property<ColumnDataSource>
   }
@@ -157,6 +159,8 @@ export class Surface3d extends LayoutDOM {
       y:            [ p.String   ],
       z:            [ p.String   ],
       colorValue:   [ p.String   ],
+      myWidth:      [ p.String   ],
+      legendLabel:  [ p.String   ],
       data_source:  [ p.Instance ],
     })
   }
@@ -193,6 +197,10 @@ class Surface3d(LayoutDOM):
     y = String
     z = String
     colorValue=String
+    myWidth=String(default="100px")
+    legendLabel=String(default="XXX")
+    xxx=Int
+    print("x",__implementation__)
 #    width=String(default=10)
 
 
@@ -208,6 +216,6 @@ colorValue = xx
 source = ColumnDataSource(data=dict(x=xx, y=yy, z=value, colorValue=colorValue))
 
 #surface = Surface3d(x="x", y="y", z="z", data_source=source, width=600, height=600)
-surface = Surface3d(x="x", y="y", z="z", colorValue="colorValue", data_source=source, width=300, height=300)
+surface = Surface3d(x="x", y="y", z="z", colorValue="colorValue", myWidth="100px", data_source=source, width=300, height=300)
 
 show(surface)
