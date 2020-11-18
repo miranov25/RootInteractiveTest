@@ -49,8 +49,15 @@ figureLayoutDesc=[
     [3, 4, {'plot_height': 100, 'x_visible': 1, 'y_visible': 2}],
     {'plot_height': 100, 'sizing_mode': 'scale_width', 'y_visible' : 2}
 ]
-myDashboard=bokehDrawSA.fromArray(df, "A>0", figureArray, widgetParams, layout=figureLayoutDesc, tooltips=tooltips, widgetLayout=widgetLayoutDesc, nPointRender=200)
+def callback(attr, old, new):
+    global i
+    print(i)
+    i=i+1
 
+
+myDashboard=bokehDrawSA.fromArray(df, "A>0", figureArray, widgetParams, layout=figureLayoutDesc, tooltips=tooltips, widgetLayout=widgetLayoutDesc, nPointRender=200)
+for widget in myDashboard.widgetList.children[0].children:
+    widget.on_change('value',callback)
 
 # put the button and plot in a layout and add to the document
 curdoc().add_root(myDashboard.pAll)
