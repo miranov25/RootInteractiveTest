@@ -10,6 +10,7 @@ import os
 import sys
 import pytest
 
+counter=0
 
 df = pd.DataFrame(np.random.random_sample(size=(20000, 6)), columns=list('ABCDEF'))
 initMetadata(df)
@@ -55,9 +56,21 @@ def callback(attr, old, new):
     i=i+1
 
 
+
 myDashboard=bokehDrawSA.fromArray(df, "A>0", figureArray, widgetParams, layout=figureLayoutDesc, tooltips=tooltips, widgetLayout=widgetLayoutDesc, nPointRender=200)
 for widget in myDashboard.widgetList.children[0].children:
     widget.on_change('value',callback)
+# add a button widget and configure with the call back
+
+def callbackB():
+    global counter
+    global myDashboard
+    cds=myDashboard.cdsSel
+    print("callback button",counter)
+    counter=counter+1
+
+button = Button(label="Refresh")
+button.on_click(callbackB)
 
 # put the button and plot in a layout and add to the document
-curdoc().add_root(myDashboard.pAll)
+curdoc().add_root(column(myDashboard.pAll,button))
